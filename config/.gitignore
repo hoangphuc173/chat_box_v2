@@ -1,0 +1,72 @@
+# ============================================================================
+# .gitignore for ChatBox1 Project
+# ============================================================================
+
+# Environment variables (CRITICAL!)
+.env
+.env.local
+.env.*.local
+
+# AWS Credentials
+.aws/credentials
+.aws/config
+**/credentials.txt
+**/aws-credentials.txt
+
+# SSH Keys
+*.pem
+*.ppk
+*.key
+chat-server-key.*
+
+# Build artifacts
+build/
+dist/
+*.o
+*.obj
+*.exe
+*.out
+*.app
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.cmake
+
+# IDE
+.vscode/
+.idea/
+*.swo
+*.swp
+*~
+.DS_Store
+
+# Logs
+*.log
+logs/
+
+# Temp files
+tmp/
+temp/
+*.tmp
+
+# Node (if using for frontend)
+node_modules/
+package-lock.json
+
+# Python (if using)
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# Backup files
+*.bak
+*.backup
+*_backup.*
+
+# OS
+Thumbs.db
+.DS_Store

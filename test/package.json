@@ -1,0 +1,43 @@
+{
+    "name": "chatbox-test",
+    "version": "1.0.0",
+    "description": "Comprehensive test suite for ChatBox",
+    "type": "module",
+    "scripts": {
+        "test": "jest --coverage",
+        "test:watch": "jest --watch",
+        "test:integration": "jest --testPathPattern=integration",
+        "test:features": "jest --testPathPattern=features",
+        "test:e2e": "playwright test",
+        "test:e2e:headed": "playwright test --headed",
+        "test:e2e:debug": "playwright test --debug",
+        "test:load": "artillery run performance/load-test.yml",
+        "test:stress": "node performance/stress-test.js",
+        "test:all": "npm test && npm run test:e2e",
+        "test:coverage": "jest --coverage --coverageReporters=html lcov text",
+        "install:playwright": "playwright install"
+    },
+    "keywords": [
+        "testing",
+        "websocket",
+        "chat",
+        "integration",
+        "e2e"
+    ],
+    "author": "",
+    "license": "ISC",
+    "dependencies": {
+        "ws": "^8.18.0",
+        "axios": "^1.6.2",
+        "form-data": "^4.0.0"
+    },
+    "devDependencies": {
+        "@jest/globals": "^29.7.0",
+        "jest": "^29.7.0",
+        "@playwright/test": "^1.40.1",
+        "artillery": "^2.0.3",
+        "chalk": "^5.3.0",
+        "@types/node": "^20.10.5",
+        "@types/ws": "^8.5.10"
+    }
+}

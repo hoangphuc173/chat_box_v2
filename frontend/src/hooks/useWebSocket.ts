@@ -494,6 +494,24 @@ export function useWebSocket() {
                 ));
                 break;
 
+            // Profile
+            case 'profile_update_response':
+                console.log('📝 Profile update response:', data);
+                // Show notification or update UI
+                break;
+
+            case 'profile_updated':
+                console.log('👤 Profile updated:', data);
+                // Update user in users list
+                setUsers(prev => prev.map(u =>
+                    u.id === data.userId ? { 
+                        ...u, 
+                        username: data.displayName || u.username,
+                        avatar: data.avatar || u.avatar
+                    } : u
+                ));
+                break;
+
             default:
                 console.log('Unknown message type:', data.type, data);
         }

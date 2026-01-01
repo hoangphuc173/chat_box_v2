@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
-import { X, Plus, Hash, Lock, Users, Loader2, Trash2, LogOut, Settings } from 'lucide-react'
+import { X, Plus, Hash, Lock, Users, Loader2, Trash2, LogOut, Settings, MessageCircle } from 'lucide-react'
 import { useWebSocket } from '@/contexts/WebSocketContext'
+import { useChatStore } from '@/stores/chatStore'
 
 interface RoomManagerProps {
     isOpen: boolean
@@ -10,6 +11,7 @@ interface RoomManagerProps {
 
 export function RoomManager({ isOpen, onClose, onRoomSelect }: RoomManagerProps) {
     const { ws, rooms, createRoom, joinRoom, leaveRoom, deleteRoom, currentRoomId, setCurrentRoomId } = useWebSocket()
+    const { onlineUsers } = useChatStore()
     
     const [activeTab, setActiveTab] = useState<'my-rooms' | 'create'>('my-rooms')
     const [loading, setLoading] = useState(false)
@@ -22,6 +24,19 @@ export function RoomManager({ isOpen, onClose, onRoomSelect }: RoomManagerProps)
     // Join room state
     const [joinRoomId, setJoinRoomId] = useState('')
     const [joining, setJoining] = useState(false)
+    
+    // Helper to get display name for DM rooms
+    const getRoomDisplayName = (room: { id: string; name: string }) => {
+        if (room.id.startsWith('dm_')) {
+            const targetUserId = room.id.replace('dm_', '')
+            const targetUser = onlineUsers.find(u => u.userId === targetUserId)
+            return targetUser?.username || `User ${targetUserId.slice(0, 8)}`
+        }
+        return room.name
+    }
+    
+    // Check if room is DM
+    const isDmRoom = (roomId: string) => roomId.startsWith('dm_')
 
     useEffect(() => {
         if (isOpen && ws) {
@@ -190,14 +205,16 @@ export function RoomManager({ isOpen, onClose, onRoomSelect }: RoomManagerProps)
                                             <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
                                                 room.id === 'global' 
                                                     ? 'bg-green-500/20 text-green-400'
-                                                    : 'bg-purple-500/20 text-purple-400'
+                                                    : isDmRoom(room.id)
+                                                        ? 'bg-pink-500/20 text-pink-400'
+                                                        : 'bg-purple-500/20 text-purple-400'
                                             }`}>
-                                                {getRoomIcon(room.id === 'global' ? 'public' : 'group')}
+                                                {isDmRoom(room.id) ? <MessageCircle className="w-4 h-4" /> : getRoomIcon(room.id === 'global' ? 'public' : 'group')}
                                             </div>
                                             <div>
-                                                <p className="font-medium text-white">{room.name}</p>
+                                                <p className="font-medium text-white">{getRoomDisplayName(room)}</p>
                                                 <p className="text-xs text-slate-500">
-                                                    {room.id === 'global' ? 'Public' : 'Room ID: ' + room.id.slice(0, 8)}
+                                                    {room.id === 'global' ? 'Public' : isDmRoom(room.id) ? 'Direct Message' : 'Room ID: ' + room.id.slice(0, 8)}
                                                 </p>
                                             </div>
                                         </button>

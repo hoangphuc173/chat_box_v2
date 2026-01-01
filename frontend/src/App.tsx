@@ -133,7 +133,7 @@ function App() {
     }
 
     return (
-        <div className="flex h-screen w-screen overflow-hidden bg-[#0a0f1a]">
+        <div className="flex h-screen w-screen overflow-hidden bg-[var(--bg-primary)]">
             <Sidebar
                 currentUser={currentUser}
                 rooms={rooms}
@@ -151,6 +151,7 @@ function App() {
                 onSendAIMessage={sendAIMessage}
                 onClearAIMessages={clearAIMessages}
                 onStartCall={(userId, type) => startCall(userId, type)}
+                onBlockUser={blockUser}
                 activeTab={activeTab}
                 onTabChange={setActiveTab}
             />

@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect, lazy, Suspense } from 'react';
-import { Phone, Video, Bot, BarChart3, Gamepad2, Tv, Search } from 'lucide-react';
+import { Phone, Video, Bot, BarChart3, Gamepad2, Tv, Search, MessageCircle, Hash } from 'lucide-react';
 import { TypingIndicator } from '../chat/TypingIndicator';
 import SearchMessages from '../search/SearchMessages';
 import { MessageInput } from '../chat/MessageInput';
 import { PollMessage } from '../chat/PollMessage';
+import { useChatStore } from '@/stores/chatStore';
 
 // Lazy load heavy modals
 import { MessageBubble } from '../chat/MessageBubble';
@@ -101,8 +102,38 @@ export default function ChatArea({
     onPinMessage,
     onReplyMessage
 }: ChatAreaProps) {
+    const { onlineUsers } = useChatStore();
     const [showReactionPicker, setShowReactionPicker] = useState<string | null>(null);
     const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+
+    // Helper function to get display name for room/DM
+    const getDisplayName = (roomId: string | null) => {
+        if (!roomId) return 'Chat';
+        
+        // Check if it's a DM room (format: dm_userId)
+        if (roomId.startsWith('dm_')) {
+            const targetUserId = roomId.replace('dm_', '');
+            // Find user in online users list
+            const targetUser = onlineUsers.find(u => u.userId === targetUserId);
+            if (targetUser) {
+                return targetUser.username;
+            }
+            // Fallback: check users prop
+            const targetFromProp = users.find(u => u.id === targetUserId);
+            if (targetFromProp) {
+                return targetFromProp.username;
+            }
+            // Last fallback: show shortened ID
+            return `User ${targetUserId.slice(0, 8)}`;
+        }
+        
+        // For regular rooms, find room name
+        const room = rooms.find(r => r.id === roomId);
+        return room?.name || roomId;
+    };
+
+    // Check if current room is a DM
+    const isDmRoom = currentRoom?.startsWith('dm_');
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -187,15 +218,19 @@ export default function ChatArea({
             {/* Header */}
             <header className="flex items-center justify-between px-5 py-3 bg-gray-900 border-b border-white/10">
                 <div className="flex items-center gap-3">
-                    <div className="w-11 h-11 flex items-center justify-center bg-gradient-to-br from-violet-500 to-indigo-500 rounded-xl text-white text-lg font-semibold">
-                        #
+                    <div className={`w-11 h-11 flex items-center justify-center rounded-xl text-white text-lg font-semibold ${
+                        isDmRoom 
+                            ? 'bg-gradient-to-br from-pink-500 to-rose-500' 
+                            : 'bg-gradient-to-br from-violet-500 to-indigo-500'
+                    }`}>
+                        {isDmRoom ? <MessageCircle size={20} /> : <Hash size={20} />}
                     </div>
                     <div>
                         <h3 className="m-0 text-slate-100 text-base font-semibold">
-                            {rooms.find(r => r.id === currentRoom)?.name || currentRoom}
+                            {isDmRoom ? '' : '#'}{getDisplayName(currentRoom)}
                         </h3>
                         <span className="text-xs text-slate-500">
-                            {displayMessages.length} messages
+                            {isDmRoom ? 'Direct Message' : `${displayMessages.length} messages`}
                         </span>
                     </div>
                 </div>

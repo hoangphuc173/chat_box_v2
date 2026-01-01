@@ -2,6 +2,9 @@
 #include "utils/logger.h"
 #include <mysqlx/xdevapi.h>
 #include <chrono>
+#include <sstream>
+#include <iomanip>
+#include <functional>
 
 // Real MySQL implementation using UserSession.sql() - cleaner than Table API
 
@@ -1364,6 +1367,65 @@ bool MySQLClient::deletePoll(const std::string& pollId) {
     } catch (const std::exception& e) {
         handleException(e, "deletePoll");
         return false;
+    }
+}
+
+// DM Conversations - Discord/Telegram style
+// Returns existing conversation_id or creates a new one
+std::string MySQLClient::getOrCreateDmConversation(const std::string& userId1, const std::string& userId2) {
+    try {
+        // Sort user IDs for consistency (user1_id < user2_id)
+        std::string smallerId = userId1 < userId2 ? userId1 : userId2;
+        std::string largerId = userId1 < userId2 ? userId2 : userId1;
+        
+        Logger::info("🔍 getOrCreateDmConversation: " + smallerId + " <-> " + largerId);
+        
+        // First, try to find existing conversation
+        auto result = session_->sql(
+            "SELECT conversation_id FROM dm_conversations WHERE user1_id = ? AND user2_id = ?"
+        ).bind(smallerId).bind(largerId).execute();
+        
+        auto row = result.fetchOne();
+        if (row) {
+            std::string existingId = row[0].get<std::string>();
+            Logger::info("✓ Found existing DM conversation: " + existingId);
+            return existingId;
+        }
+        
+        // No existing conversation, create new one
+        // Generate conversation_id using hash (like Discord snowflake but simpler)
+        std::hash<std::string> hasher;
+        size_t hash1 = hasher(smallerId + "_" + largerId);
+        size_t hash2 = hasher(largerId + "_" + smallerId + "_" + std::to_string(std::time(nullptr)));
+        
+        std::stringstream ss;
+        ss << "dm_" << std::hex << std::setfill('0') << std::setw(8) << (hash1 & 0xFFFFFFFF);
+        ss << std::setw(8) << (hash2 & 0xFFFFFFFF);
+        std::string newConversationId = ss.str();  // dm_ + 16 hex chars = 19 chars
+        
+        // Insert new conversation
+        session_->sql(
+            "INSERT INTO dm_conversations (conversation_id, user1_id, user2_id) VALUES (?, ?, ?)"
+        ).bind(newConversationId).bind(smallerId).bind(largerId).execute();
+        
+        Logger::info("✓ Created new DM conversation: " + newConversationId);
+        return newConversationId;
+        
+    } catch (const std::exception& e) {
+        // Table might not exist yet, fall back to hash-based ID
+        Logger::warning("DM conversation table not ready, using hash fallback: " + std::string(e.what()));
+        
+        std::string smallerId = userId1 < userId2 ? userId1 : userId2;
+        std::string largerId = userId1 < userId2 ? userId2 : userId1;
+        
+        std::hash<std::string> hasher;
+        size_t hash1 = hasher(smallerId + "_" + largerId);
+        size_t hash2 = hasher(largerId + "_" + smallerId);
+        
+        std::stringstream ss;
+        ss << "dm_" << std::hex << std::setfill('0') << std::setw(8) << (hash1 & 0xFFFFFFFF);
+        ss << std::setw(8) << (hash2 & 0xFFFFFFFF);
+        return ss.str();
     }
 }
 

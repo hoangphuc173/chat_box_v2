@@ -8,6 +8,7 @@ struct PerSocketData {
     std::string sessionId;
     std::string userId;
     std::string username;
+    std::string currentRoom;  // Currently joined room
     bool authenticated = false;
 };
 

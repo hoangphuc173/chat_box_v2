@@ -56,7 +56,7 @@ export default function LoginPage({ onLogin, onRegister }: LoginPageProps) {
             <div className="absolute -bottom-[100px] -left-[100px] w-[400px] h-[400px] rounded-full bg-[radial-gradient(circle,rgba(99,102,241,0.3)_0%,transparent_70%)] blur-[60px]" />
 
             {/* Login Card */}
-            <div className="w-full max-w-[420px] bg-[#171923]/85 backdrop-blur-[20px] rounded-3xl p-10 md:p-12 border border-white/10 shadow-2xl relative z-10">
+            <div className="w-full max-w-[420px] bg-[var(--bg-secondary)]/85 backdrop-blur-[20px] rounded-3xl p-10 md:p-12 border border-[var(--border)] shadow-2xl relative z-10">
                 {/* Logo */}
                 <div className="text-center mb-8">
                     <div className="w-[72px] h-[72px] mx-auto mb-4 bg-gradient-to-br from-violet-500 to-indigo-500 rounded-[20px] flex items-center justify-center shadow-[0_10px_30px_rgba(139,92,246,0.4)]">

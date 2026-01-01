@@ -33,6 +33,8 @@ interface SidebarProps {
     onClearAIMessages?: () => void;
     // Call
     onStartCall?: (userId: string, type: 'audio' | 'video') => void;
+    // Block user
+    onBlockUser?: (userId: string) => void;
     // Tab control from parent
     activeTab?: 'rooms' | 'users';
     onTabChange?: (tab: 'rooms' | 'users') => void;
@@ -55,6 +57,7 @@ export default function Sidebar({
     onSendAIMessage,
     onClearAIMessages: _onClearAIMessages,
     onStartCall,
+    onBlockUser,
     activeTab: controlledActiveTab,
     onTabChange
 }: SidebarProps) {
@@ -592,7 +595,7 @@ export default function Sidebar({
             {/* Create Room Modal */}
             {isCreatingRoom && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-                    <div className="w-full max-w-sm p-6 bg-[#1e293b] rounded-2xl border border-white/10 shadow-xl">
+                    <div className="w-full max-w-sm p-6 bg-[var(--bg-tertiary)] rounded-2xl border border-[var(--border)] shadow-xl">
                         <h3 className="text-xl font-semibold text-white mb-2">Create New Room</h3>
                         <p className="text-slate-400 text-sm mb-6">Enter a name for your new discussion channel.</p>
 
@@ -635,7 +638,7 @@ export default function Sidebar({
             {/* User Settings / Profile Editor Modal */}
             {isSettingsOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-                    <div className="w-full max-w-md p-6 bg-[#1e293b] rounded-2xl border border-white/10 shadow-xl">
+                    <div className="w-full max-w-md p-6 bg-[var(--bg-tertiary)] rounded-2xl border border-[var(--border)] shadow-xl">
                         <div className="flex items-center justify-between mb-6">
                             <h3 className="text-xl font-semibold text-white">Edit Profile</h3>
                             <button
@@ -807,13 +810,14 @@ export default function Sidebar({
                 users={users}
                 currentUserId={currentUser?.id}
                 onStartDM={(userId) => onRoomSelect(`dm_${userId}`)}
+                onBlockUser={onBlockUser}
             />
 
             {/* AI Chat Panel (Slide-in) */}
             {isAIChatOpen && (
                 <div className="fixed inset-0 z-50 flex">
                     <div className="flex-1 bg-black/30" onClick={() => setIsAIChatOpen(false)} />
-                    <div className="w-96 h-full bg-[#0f172a] border-l border-white/10 flex flex-col shadow-2xl">
+                    <div className="w-96 h-full bg-[var(--bg-primary)] border-l border-[var(--border)] flex flex-col shadow-2xl">
                         {/* Header */}
                         <div className="p-4 border-b border-white/10 flex items-center justify-between">
                             <div className="flex items-center gap-3">
@@ -900,7 +904,7 @@ export default function Sidebar({
             {/* Bot Manager Modal */}
             {isBotManagerOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-                    <div className="w-full max-w-2xl bg-[#1e293b] rounded-2xl border border-white/10 shadow-2xl overflow-hidden max-h-[80vh] flex flex-col">
+                    <div className="w-full max-w-2xl bg-[var(--bg-tertiary)] rounded-2xl border border-[var(--border)] shadow-2xl overflow-hidden max-h-[80vh] flex flex-col">
                         {/* Header */}
                         <div className="p-4 border-b border-white/10 flex items-center justify-between">
                             <div className="flex items-center gap-3">

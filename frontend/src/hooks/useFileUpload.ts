@@ -99,7 +99,18 @@ export function useFileUpload(websocket?: WebSocket, roomId?: string) {
                 try {
                     console.log('📤 Uploading file:', file.name, 'Size:', file.size);
                     
-                    const response = await fetch('http://192.168.1.8:8080/upload', {
+                    // Auto-detect upload URL based on current page URL
+                    const { protocol, hostname } = window.location;
+                    let uploadUrl: string;
+                    if (hostname.includes('devtunnels.ms')) {
+                        // VS Code Port Forwarding
+                        const uploadHost = hostname.replace(/-\d+\./, '-8080.');
+                        uploadUrl = `https://${uploadHost}/upload`;
+                    } else {
+                        uploadUrl = `${protocol}//${hostname}:8080/upload`;
+                    }
+                    
+                    const response = await fetch(uploadUrl, {
                         method: 'POST',
                         headers: {
                             'X-Filename': encodeURIComponent(file.name)

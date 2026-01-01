@@ -207,7 +207,7 @@ export default function RightPanel({
             {/* Invite Modal */}
             {showInviteModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-                    <div className="w-full max-w-sm p-6 bg-[#1e293b] rounded-2xl border border-white/10 shadow-xl">
+                    <div className="w-full max-w-sm p-6 bg-[var(--bg-tertiary)] rounded-2xl border border-[var(--border)] shadow-xl">
                         <h3 className="text-xl font-semibold text-white mb-2">Invite Members</h3>
                         <p className="text-slate-400 text-sm mb-6">Share this Room ID with your friends.</p>
 
@@ -247,7 +247,7 @@ export default function RightPanel({
             {/* Settings Modal */}
             {showSettingsModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-                    <div className="w-full max-w-sm p-6 bg-[#1e293b] rounded-2xl border border-white/10 shadow-xl">
+                    <div className="w-full max-w-sm p-6 bg-[var(--bg-tertiary)] rounded-2xl border border-[var(--border)] shadow-xl">
                         <h3 className="text-xl font-semibold text-white mb-4">Room Settings</h3>
 
                         <div className="space-y-4 mb-6">

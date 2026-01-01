@@ -76,6 +76,7 @@ private:
         std::string sessionId;
         std::string userId;
         std::string username;
+        std::string currentRoom;  // Currently joined room
         bool authenticated;
         uint64_t connectedAt;
         void* wsPtr;  // WebSocket pointer for broadcasting

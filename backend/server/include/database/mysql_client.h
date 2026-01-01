@@ -87,6 +87,10 @@ public:
     bool closePoll(const std::string& pollId);
     bool deletePoll(const std::string& pollId);
     
+    // DM Conversations (Discord/Telegram style)
+    // Returns existing conversation_id or creates a new one
+    std::string getOrCreateDmConversation(const std::string& userId1, const std::string& userId2);
+    
     // Direct session access for custom queries
     std::shared_ptr<mysqlx::Session> getSession() { return session_; }
     

@@ -12,6 +12,35 @@
 #include <chrono>
 #include <sstream>
 #include <iomanip>
+#include <functional>  // for std::hash
+
+// Helper function to create canonical DM roomId
+// Format: dm_<hash> - ensures consistent roomId regardless of who sends first
+// Uses simple string hash for short roomId (fits in VARCHAR(64))
+static std::string createCanonicalDmRoomId(const std::string& userId1, const std::string& userId2) {
+    // Sort user IDs for consistency
+    std::string first, second;
+    if (userId1 < userId2) {
+        first = userId1;
+        second = userId2;
+    } else {
+        first = userId2;
+        second = userId1;
+    }
+    
+    // Create hash of combined sorted IDs
+    std::string combined = first + "_" + second;
+    std::hash<std::string> hasher;
+    size_t hash1 = hasher(combined);
+    size_t hash2 = hasher(second + "_" + first);  // Additional entropy
+    
+    // Convert to hex string (16 chars each = 32 chars total)
+    std::stringstream ss;
+    ss << std::hex << std::setfill('0') << std::setw(16) << hash1;
+    ss << std::setfill('0') << std::setw(16) << hash2;
+    
+    return "dm_" + ss.str();  // dm_ + 32 hex chars = 35 chars total, fits in VARCHAR(64)
+}
 
 using json = nlohmann::json;
 
@@ -1768,9 +1797,18 @@ void WebSocketServer::handleChatMessageJson(void* wsPtr, const std::string& json
         try {
             Logger::info("🔍 Preparing to save message to database...");
             
+            // For DM, use conversation_id from database (Discord/Telegram style)
+            std::string storageRoomId = roomId;
+            if (roomId.rfind("dm_", 0) == 0) {
+                std::string targetUserId = roomId.substr(3);
+                // Get or create DM conversation (like Discord channel)
+                storageRoomId = dbClient_->getOrCreateDmConversation(data->userId, targetUserId);
+                Logger::info("📦 DM conversation roomId for storage: " + storageRoomId);
+            }
+            
             Message dbMessage;
             dbMessage.messageId = messageId;
-            dbMessage.roomId = roomId;
+            dbMessage.roomId = storageRoomId;  // Use conversation_id for DM
             dbMessage.senderId = data->userId;
             dbMessage.senderName = data->username;  // Add sender name
             dbMessage.content = content;
@@ -1798,11 +1836,49 @@ void WebSocketServer::handleChatMessageJson(void* wsPtr, const std::string& json
             // Continue anyway - message still gets broadcast
         }
         
-        // Echo back to sender first
-        sendJsonMessage(wsPtr, responseStr);
-        
-        // Broadcast to all other users in room
-        broadcastToRoom(roomId, responseStr, data->userId);
+        // Check if this is a DM (format: dm_userId)
+        if (roomId.rfind("dm_", 0) == 0) {
+            // Extract target user ID from room ID
+            std::string targetUserId = roomId.substr(3); // Remove "dm_" prefix
+            Logger::info("📨 DM detected from " + data->userId + " to user: " + targetUserId);
+            
+            // Create response for sender with their perspective roomId
+            json senderResponse = {
+                {"type", "chat"},
+                {"messageId", response["messageId"]},
+                {"roomId", roomId},  // Sender sees dm_targetUserId
+                {"userId", data->userId},
+                {"username", data->username},
+                {"content", content},
+                {"timestamp", response["timestamp"]}
+            };
+            if (!metadata.is_null()) {
+                senderResponse["metadata"] = metadata;
+            }
+            sendJsonMessage(wsPtr, senderResponse.dump());
+            
+            // Create response for receiver with their perspective roomId
+            json receiverResponse = {
+                {"type", "chat"},
+                {"messageId", response["messageId"]},
+                {"roomId", "dm_" + data->userId},  // Receiver sees dm_senderId
+                {"userId", data->userId},
+                {"username", data->username},
+                {"content", content},
+                {"timestamp", response["timestamp"]}
+            };
+            if (!metadata.is_null()) {
+                receiverResponse["metadata"] = metadata;
+            }
+            
+            // Send to target user with their perspective roomId
+            sendToUser(targetUserId, receiverResponse.dump());
+        } else {
+            // Echo back to sender for non-DM messages
+            sendJsonMessage(wsPtr, responseStr);
+            // Broadcast to all other users in room
+            broadcastToRoom(roomId, responseStr, data->userId);
+        }
         
         // Publish to PubSub (for future multi-server support)
         broker_->publish("chat." + roomId, responseStr);
@@ -1836,10 +1912,39 @@ void WebSocketServer::broadcast(const std::string& message) {
 void WebSocketServer::broadcastToRoom(const std::string& roomId, const std::string& message, const std::string& excludeUserId) {
     std::lock_guard<std::mutex> lock(connectionsMutex_);
     
+    // Get room members from database
+    std::vector<std::string> roomMembers;
+    try {
+        roomMembers = dbClient_->getRoomMembers(roomId);
+    } catch (...) {
+        // If can't get members, broadcast to all authenticated users viewing this room
+        Logger::warning("Could not get room members, falling back to currentRoom check");
+    }
+    
     int sent = 0;
     for (const auto& [key, state] : connections_) {
-        // Send to authenticated users, skip excluded user (usually sender)
-        if (state.authenticated && state.wsPtr && state.userId != excludeUserId) {
+        // Skip excluded user (usually sender) and unauthenticated users
+        if (!state.authenticated || !state.wsPtr || state.userId == excludeUserId) {
+            continue;
+        }
+        
+        bool shouldSend = false;
+        
+        // Check if user is currently viewing this room
+        if (state.currentRoom == roomId) {
+            shouldSend = true;
+        }
+        // Or check if user is a member of this room (from database)
+        else if (!roomMembers.empty()) {
+            for (const auto& memberId : roomMembers) {
+                if (memberId == state.userId) {
+                    shouldSend = true;
+                    break;
+                }
+            }
+        }
+        
+        if (shouldSend) {
             auto* ws = (uWS::WebSocket<false, true, PerSocketData>*)state.wsPtr;
             ws->send(message, uWS::OpCode::TEXT);
             sent++;
@@ -2127,24 +2232,61 @@ void WebSocketServer::handleJoinRoomJson(void* wsPtr, const std::string& jsonStr
         
         Logger::info("🚪 User joining room: " + data->username + " → " + roomId);
         
+        // Update currentRoom in PerSocketData
+        data->currentRoom = roomId;
+        
+        // Update currentRoom in connections_ map
+        {
+            std::lock_guard<std::mutex> lock(connectionsMutex_);
+            if (connections_.count(wsPtr)) {
+                connections_[wsPtr].currentRoom = roomId;
+            }
+        }
+        
         // Save to room_members table
         bool added = dbClient_->addRoomMember(roomId, data->userId);
         if (!added) {
             Logger::warning("User already member or failed to add to room");
         }
         
-        // Load room history
-        auto historyMessages = dbClient_->getMessagesByRoom(roomId, 50);
+        // For DM, use conversation_id from database (Discord/Telegram style)
+        std::string queryRoomId = roomId;
+        if (roomId.rfind("dm_", 0) == 0) {
+            std::string targetUserId = roomId.substr(3);
+            Logger::info("📦 DM join - user=" + data->userId + ", target=" + targetUserId);
+            // Get or create DM conversation (like Discord channel)
+            queryRoomId = dbClient_->getOrCreateDmConversation(data->userId, targetUserId);
+            Logger::info("📦 DM conversation roomId for query: " + queryRoomId);
+        }
+        
+        // Load room history using conversation_id
+        Logger::info("📚 Loading history for queryRoomId: " + queryRoomId);
+        auto historyMessages = dbClient_->getMessagesByRoom(queryRoomId, 50);
+        Logger::info("📚 Got " + std::to_string(historyMessages.size()) + " messages from DB for roomId=" + queryRoomId);
         json history = json::array();
         for (const auto& m : historyMessages) {
-            history.push_back({
+            // For DM history, convert roomId back to user's perspective
+            std::string displayRoomId = m.roomId;
+            if (m.roomId.rfind("dm_", 0) == 0) {
+                // This is a DM conversation_id
+                // Convert to user's perspective (dm_otherUserId)
+                displayRoomId = roomId;  // Use the roomId the user requested
+            }
+            json msgJson = {
                 {"messageId", m.messageId},
-                {"roomId", m.roomId},
+                {"roomId", displayRoomId},
                 {"userId", m.senderId},
                 {"username", m.senderName},
                 {"content", m.content},
                 {"timestamp", m.timestamp * 1000}
-            });
+            };
+            // Add metadata if present
+            if (!m.metadata.empty()) {
+                try {
+                    msgJson["metadata"] = json::parse(m.metadata);
+                } catch (...) {}
+            }
+            history.push_back(msgJson);
         }
         
         // Get room members
@@ -2194,6 +2336,26 @@ void WebSocketServer::handleLeaveRoomJson(void* wsPtr, const std::string& jsonSt
         
         Logger::info("🚪 User leaving room: " + data->username + " ← " + roomId);
         
+        // Broadcast to others BEFORE clearing room (so they still get the message)
+        json broadcast = {
+            {"type", "user_left_room"},
+            {"roomId", roomId},
+            {"userId", data->userId},
+            {"username", data->username}
+        };
+        broadcastToRoom(roomId, broadcast.dump(), data->userId);
+        
+        // Clear currentRoom in PerSocketData
+        data->currentRoom = "";
+        
+        // Clear currentRoom in connections_ map
+        {
+            std::lock_guard<std::mutex> lock(connectionsMutex_);
+            if (connections_.count(wsPtr)) {
+                connections_[wsPtr].currentRoom = "";
+            }
+        }
+        
         // Remove from room_members table
         bool removed = dbClient_->removeRoomMember(roomId, data->userId);
         if (!removed) {
@@ -2206,15 +2368,6 @@ void WebSocketServer::handleLeaveRoomJson(void* wsPtr, const std::string& jsonSt
             {"success", removed}
         };
         sendJsonMessage(wsPtr, response.dump());
-        
-        // Broadcast to others
-        json broadcast = {
-            {"type", "user_left_room"},
-            {"roomId", roomId},
-            {"userId", data->userId},
-            {"username", data->username}
-        };
-        broadcastToRoom(roomId, broadcast.dump(), data->userId);
         
         Logger::info("✅ User left room: " + roomId);
         

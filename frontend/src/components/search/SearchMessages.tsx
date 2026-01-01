@@ -108,7 +108,7 @@ export default function SearchMessages({ isOpen, onClose, messages, onScrollToMe
     return (
         <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 bg-black/50 backdrop-blur-sm" onClick={onClose}>
             <div
-                className="w-full max-w-2xl bg-[#1e293b] rounded-2xl border border-white/10 shadow-2xl overflow-hidden"
+                className="w-full max-w-2xl bg-[var(--bg-tertiary)] rounded-2xl border border-[var(--border)] shadow-2xl overflow-hidden"
                 onClick={e => e.stopPropagation()}
             >
                 {/* Search Input */}

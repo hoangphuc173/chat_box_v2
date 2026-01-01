@@ -27,7 +27,7 @@ export function GameModal({ isOpen, onClose, onInviteGame, users, currentUserId 
 
     return (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-[#1e293b] rounded-2xl w-full max-w-md shadow-2xl">
+            <div className="bg-[var(--bg-tertiary)] rounded-2xl w-full max-w-md shadow-2xl">
                 {/* Header */}
                 <div className="p-4 border-b border-white/10 flex items-center justify-between">
                     <div className="flex items-center gap-3">

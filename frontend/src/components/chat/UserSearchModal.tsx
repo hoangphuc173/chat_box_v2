@@ -15,6 +15,7 @@ interface UserSearchModalProps {
     currentUserId?: string;
     onStartDM: (userId: string) => void;
     onInviteToRoom?: (userId: string) => void;
+    onBlockUser?: (userId: string) => void;
 }
 
 export default function UserSearchModal({
@@ -23,7 +24,8 @@ export default function UserSearchModal({
     users,
     currentUserId,
     onStartDM,
-    onInviteToRoom
+    onInviteToRoom,
+    onBlockUser
 }: UserSearchModalProps) {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -57,7 +59,7 @@ export default function UserSearchModal({
 
     return (
         <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 bg-black/50 backdrop-blur-sm">
-            <div className="w-full max-w-lg bg-[#1e293b] rounded-2xl border border-white/10 shadow-2xl overflow-hidden">
+            <div className="w-full max-w-lg bg-[var(--bg-tertiary)] rounded-2xl border border-[var(--border)] shadow-2xl overflow-hidden">
                 {/* Search Header */}
                 <div className="p-4 border-b border-white/10">
                     <div className="relative">
@@ -166,8 +168,10 @@ export default function UserSearchModal({
                                             <button
                                                 onClick={(e) => {
                                                     e.stopPropagation();
-                                                    // TODO: Implement block user
-                                                    console.log('Block user:', user.id);
+                                                    if (onBlockUser) {
+                                                        onBlockUser(user.id);
+                                                        onClose();
+                                                    }
                                                 }}
                                                 className="px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-400 text-xs font-medium rounded-lg transition-colors border-none cursor-pointer"
                                             >

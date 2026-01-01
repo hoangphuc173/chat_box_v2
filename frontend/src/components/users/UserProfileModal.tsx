@@ -60,7 +60,7 @@ export function UserProfileModal({ isOpen, onClose, user, onUpdateProfile, isOwn
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
             <div
-                className="w-full max-w-md bg-[#1e293b] rounded-2xl border border-white/10 shadow-2xl overflow-hidden"
+                className="w-full max-w-md bg-[var(--bg-tertiary)] rounded-2xl border border-[var(--border)] shadow-2xl overflow-hidden"
                 onClick={e => e.stopPropagation()}
             >
                 {/* Header Banner */}

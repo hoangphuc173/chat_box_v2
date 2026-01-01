@@ -1,7 +1,9 @@
-import { Phone, Video, Bot, BarChart3, Gamepad2, Tv, Search } from 'lucide-react';
+import { Phone, Video, Bot, BarChart3, Gamepad2, Tv, Search, MessageCircle, Hash } from 'lucide-react';
+import { useChatStore } from '@/stores/chatStore';
 
 interface ChatHeaderProps {
     currentRoom: string | null;
+    roomName?: string;
     onToggleRightPanel: () => void;
     onStartCall?: (type: 'audio' | 'video') => void;
     onShowAIModal?: () => void;
@@ -13,6 +15,7 @@ interface ChatHeaderProps {
 
 export function ChatHeader({
     currentRoom,
+    roomName,
     onToggleRightPanel,
     onStartCall,
     onShowAIModal,
@@ -21,11 +24,35 @@ export function ChatHeader({
     onShowWatchModal,
     onShowSearch
 }: ChatHeaderProps) {
+    const { onlineUsers } = useChatStore();
+    
+    // Helper to get display name
+    const getDisplayName = () => {
+        if (!currentRoom) return 'Chat';
+        
+        // DM room - show username
+        if (currentRoom.startsWith('dm_')) {
+            const targetUserId = currentRoom.replace('dm_', '');
+            const targetUser = onlineUsers.find(u => u.userId === targetUserId);
+            return targetUser?.username || `User ${targetUserId.slice(0, 8)}`;
+        }
+        
+        // Regular room
+        return roomName || currentRoom;
+    };
+    
+    const isDmRoom = currentRoom?.startsWith('dm_');
+    
     return (
-        <header className="h-16 px-5 flex items-center justify-between border-b border-white/10 shrink-0 bg-[#111827]">
+        <header className="h-16 px-5 flex items-center justify-between border-b border-[var(--border)] shrink-0 bg-[var(--bg-secondary)]">
             <div className="flex items-center gap-3">
+                {isDmRoom ? (
+                    <MessageCircle className="w-5 h-5 text-pink-400" />
+                ) : (
+                    <Hash className="w-5 h-5 text-violet-400" />
+                )}
                 <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                    #{currentRoom || 'Chat'}
+                    {getDisplayName()}
                 </h2>
             </div>
 

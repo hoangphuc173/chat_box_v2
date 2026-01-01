@@ -31,7 +31,7 @@ export function UploadProgressBar({
     };
 
     return (
-        <div className="fixed bottom-4 right-4 bg-[#1e293b] rounded-lg shadow-2xl border border-white/10 p-4 w-80 z-50 animate-slide-up">
+        <div className="fixed bottom-4 right-4 bg-[var(--bg-tertiary)] rounded-lg shadow-2xl border border-[var(--border)] p-4 w-80 z-50 animate-slide-up">
             {/* Header */}
             <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">

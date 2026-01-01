@@ -103,7 +103,7 @@ export function WatchModal({
 
     return (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 backdrop-blur-sm">
-            <div className="bg-[#1e293b] rounded-2xl w-full max-w-4xl shadow-2xl max-h-[90vh] overflow-hidden">
+            <div className="bg-[var(--bg-tertiary)] rounded-2xl w-full max-w-4xl shadow-2xl max-h-[90vh] overflow-hidden">
                 {/* Header */}
                 <div className="p-4 border-b border-white/10 flex items-center justify-between">
                     <div className="flex items-center gap-3">

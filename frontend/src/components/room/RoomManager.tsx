@@ -67,14 +67,17 @@ export function RoomManager({ isOpen, onClose, onRoomSelect }: RoomManagerProps)
     const [joining, setJoining] = useState(false)
     
     // Helper to get display name for DM rooms
-    const getRoomDisplayName = (room: { id: string; name: string }) => {
-        if (!room || !room.id) return 'Unknown Room'
-        if (room.id.startsWith('dm_')) {
-            const targetUserId = room.id.replace('dm_', '')
+    const getRoomDisplayName = (room: { roomId?: string; id?: string; roomName?: string; name?: string }) => {
+        const id = room.roomId || room.id
+        const name = room.roomName || room.name
+        
+        if (!room || !id) return 'Unknown Room'
+        if (id.startsWith('dm_')) {
+            const targetUserId = id.replace('dm_', '')
             const targetUser = onlineUsers?.find(u => u.userId === targetUserId)
             return targetUser?.username || `User ${targetUserId.slice(0, 8)}`
         }
-        return room.name || 'Unnamed Room'
+        return name || 'Unnamed Room'
     }
     
     // Check if room is DM
@@ -92,17 +95,31 @@ export function RoomManager({ isOpen, onClose, onRoomSelect }: RoomManagerProps)
             const handleMessage = (event: MessageEvent) => {
                 try {
                     const data = JSON.parse(event.data)
+                    console.log('📨 RoomManager received message:', data.type, data)
+                    
                     if (data.type === 'room_created') {
+                        console.log('✅ Room created successfully')
                         setCreating(false)
                         setNewRoomName('')
                         setActiveTab('my-rooms')
+                        fetchRooms() // Refresh room list
                     } else if (data.type === 'room_joined') {
+                        console.log('✅ Room joined successfully')
                         setJoining(false)
                         setJoinRoomId('')
+                        setActiveTab('my-rooms')
+                        fetchRooms() // Refresh room list
                     } else if (data.type === 'room_left') {
-                        // Room left successfully
+                        console.log('✅ Room left successfully')
+                        fetchRooms() // Refresh room list
                     } else if (data.type === 'room_list') {
+                        console.log('📋 Room list received:', data.rooms?.length || 0, 'rooms')
                         setLoading(false)
+                    } else if (data.type === 'error') {
+                        console.error('❌ Room error:', data.message)
+                        setCreating(false)
+                        setJoining(false)
+                        alert('Error: ' + data.message)
                     }
                 } catch (e) {
                     console.error('Failed to parse message:', e)
@@ -125,16 +142,28 @@ export function RoomManager({ isOpen, onClose, onRoomSelect }: RoomManagerProps)
         e.preventDefault()
         if (!newRoomName.trim()) return
 
+        console.log('🏗️ Creating room:', newRoomName.trim(), 'Type:', newRoomType)
         setCreating(true)
         createRoom(newRoomName.trim(), newRoomType)
+        
+        // Auto reset after 5 seconds if no response
+        setTimeout(() => {
+            setCreating(false)
+        }, 5000)
     }
 
     const handleJoinRoom = (e: React.FormEvent) => {
         e.preventDefault()
         if (!joinRoomId.trim()) return
 
+        console.log('🚪 Joining room:', joinRoomId.trim())
         setJoining(true)
         joinRoom(joinRoomId.trim())
+        
+        // Auto reset after 5 seconds if no response
+        setTimeout(() => {
+            setJoining(false)
+        }, 5000)
     }
 
     const handleLeaveRoom = (roomId: string) => {
@@ -240,47 +269,51 @@ export function RoomManager({ isOpen, onClose, onRoomSelect }: RoomManagerProps)
                                     <p className="text-sm">Create or join a room to get started</p>
                                 </div>
                             ) : (
-                                rooms.filter(room => room && room.id).map((room) => (
+                                rooms.filter(room => room && ((room as any).roomId || (room as any).id)).map((room) => {
+                                    const roomId = (room as any).roomId || (room as any).id || ''
+                                    const roomName = (room as any).roomName || (room as any).name || ''
+                                    
+                                    return (
                                     <div
-                                        key={room.id}
+                                        key={roomId}
                                         className={`flex items-center justify-between p-3 rounded-lg transition-colors ${
-                                            currentRoomId === room.id
+                                            currentRoomId === roomId
                                                 ? 'bg-purple-500/20 border border-purple-500/50'
                                                 : 'bg-slate-900 hover:bg-slate-700'
                                         }`}
                                     >
                                         <button
-                                            onClick={() => handleSelectRoom(room.id)}
+                                            onClick={() => handleSelectRoom(roomId)}
                                             className="flex items-center gap-3 flex-1 text-left"
                                         >
                                             <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                                                room.id === 'global' 
+                                                roomId === 'global' 
                                                     ? 'bg-green-500/20 text-green-400'
-                                                    : isDmRoom(room.id)
+                                                    : isDmRoom(roomId)
                                                         ? 'bg-pink-500/20 text-pink-400'
                                                         : 'bg-purple-500/20 text-purple-400'
                                             }`}>
-                                                {isDmRoom(room.id) ? <MessageCircle className="w-4 h-4" /> : getRoomIcon(room.id === 'global' ? 'public' : 'group')}
+                                                {isDmRoom(roomId) ? <MessageCircle className="w-4 h-4" /> : getRoomIcon(roomId === 'global' ? 'public' : 'group')}
                                             </div>
                                             <div>
-                                                <p className="font-medium text-white">{getRoomDisplayName(room)}</p>
+                                                <p className="font-medium text-white">{roomName || getRoomDisplayName(room)}</p>
                                                 <p className="text-xs text-slate-500">
-                                                    {room.id === 'global' ? 'Public' : isDmRoom(room.id) ? 'Direct Message' : 'Room ID: ' + (room.id || '').slice(0, 8)}
+                                                    {roomId === 'global' ? 'Public' : isDmRoom(roomId) ? 'Direct Message' : 'Room ID: ' + roomId.slice(0, 8)}
                                                 </p>
                                             </div>
                                         </button>
                                         
-                                        {room.id !== 'global' && (
+                                        {roomId !== 'global' && (
                                             <div className="flex items-center gap-1">
                                                 <button
-                                                    onClick={() => handleLeaveRoom(room.id)}
+                                                    onClick={() => handleLeaveRoom(roomId)}
                                                     className="p-2 text-slate-400 hover:text-yellow-400 hover:bg-yellow-400/10 rounded-lg transition-colors"
                                                     title="Leave room"
                                                 >
                                                     <LogOut className="w-4 h-4" />
                                                 </button>
                                                 <button
-                                                    onClick={() => handleDeleteRoom(room.id)}
+                                                    onClick={() => handleDeleteRoom(roomId)}
                                                     className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
                                                     title="Delete room"
                                                 >
@@ -289,7 +322,7 @@ export function RoomManager({ isOpen, onClose, onRoomSelect }: RoomManagerProps)
                                             </div>
                                         )}
                                     </div>
-                                ))
+                                )})
                             )}
                         </div>
                     ) : (

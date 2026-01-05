@@ -2567,7 +2567,7 @@ void WebSocketServer::handleGetRoomsJson(void* wsPtr) {
             auto session = dbClient_->getSession();
             if (session) {
                 auto result = session->sql(
-                    "SELECT r.room_id, r.room_name, r.room_type, rm.role "
+                    "SELECT r.room_id, r.name, r.room_type, rm.role "
                     "FROM rooms r "
                     "JOIN room_members rm ON r.room_id = rm.room_id "
                     "WHERE rm.user_id = ? ORDER BY r.created_at DESC"

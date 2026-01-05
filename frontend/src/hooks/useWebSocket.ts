@@ -881,14 +881,27 @@ export function useWebSocket() {
 
     // Delete room from local state (after leaving)
     const deleteRoom = useCallback((roomId: string) => {
-        setRooms(prev => prev.filter(r => r.id !== roomId));
+        console.log('🗑️ Deleting room:', roomId)
+        
+        // Send delete request to server
+        send({
+            type: 'delete_room',
+            roomId: roomId
+        });
+        
+        // Update local state
+        setRooms(prev => prev.filter(r => {
+            const id = (r as any).id || (r as any).roomId;
+            return id !== roomId;
+        }));
+        
         // Also clear messages for that room
         setMessages(prev => {
             const updated = { ...prev };
             delete updated[roomId];
             return updated;
         });
-    }, []);
+    }, [send]);
 
     const createRoom = useCallback((name: string, roomType?: 'public' | 'private' | 'group') => {
         send({

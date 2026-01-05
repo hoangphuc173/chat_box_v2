@@ -205,9 +205,17 @@ export default function Sidebar({
         }
     };
 
-    const filteredRooms = rooms.filter(room =>
-        room.name?.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const filteredRooms = rooms.filter(room => {
+        const name = (room as any).name || (room as any).roomName || '';
+        return name.toLowerCase().includes(searchQuery.toLowerCase());
+    }).map(room => ({
+        // Normalize room format to use consistent properties
+        id: (room as any).id || (room as any).roomId,
+        name: (room as any).name || (room as any).roomName,
+        unreadCount: (room as any).unreadCount || (room as any).unread || 0,
+        lastMessage: (room as any).lastMessage,
+        ...room
+    }));
 
     const filteredUsers = users.filter(user =>
         user.username?.toLowerCase().includes(searchQuery.toLowerCase()) &&

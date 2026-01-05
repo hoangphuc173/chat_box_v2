@@ -35,7 +35,11 @@ function App() {
         typingUsers,
         createPoll,
         votePoll,
+        activeGames,
         inviteGame,
+        acceptGame,
+        rejectGame,
+        makeGameMove,
         watchSession,
         createWatchSession,
         syncWatch,
@@ -212,7 +216,11 @@ function App() {
                 onCreatePoll={createPoll}
                 onVotePoll={votePoll}
                 polls={polls}
+                activeGames={activeGames}
                 onInviteGame={inviteGame}
+                onAcceptGame={acceptGame}
+                onRejectGame={rejectGame}
+                onMakeGameMove={makeGameMove}
                 watchSession={watchSession}
                 onCreateWatchSession={createWatchSession}
                 onSyncWatch={syncWatch}

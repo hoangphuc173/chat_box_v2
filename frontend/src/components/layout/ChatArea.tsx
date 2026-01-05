@@ -4,6 +4,7 @@ import { TypingIndicator } from '../chat/TypingIndicator';
 import SearchMessages from '../search/SearchMessages';
 import { MessageInput } from '../chat/MessageInput';
 import { PollMessage } from '../chat/PollMessage';
+import { TicTacToeGame } from '../chat/GameComponents';
 import { useChatStore } from '@/stores/chatStore';
 
 // Lazy load heavy modals
@@ -42,6 +43,16 @@ interface Poll {
     roomId?: string;
 }
 
+interface GameState {
+    id: string;
+    type: 'tictactoe' | 'chess';
+    board: string[];
+    currentTurn: string;
+    players: { X: string; O: string };
+    winner: string | null;
+    status: 'waiting' | 'playing' | 'finished';
+}
+
 interface ChatAreaProps {
     currentRoom: string | null;
     currentUser: any;
@@ -58,7 +69,11 @@ interface ChatAreaProps {
     onCreatePoll?: (question: string, options: string[]) => void;
     onVotePoll?: (pollId: string, optionId: string) => void;
     polls?: Record<string, Poll>;
+    activeGames?: Record<string, GameState>;
     onInviteGame?: (gameType: 'tictactoe' | 'chess', opponentId: string) => void;
+    onAcceptGame?: (gameId: string, fromUserId: string) => void;
+    onRejectGame?: (gameId: string) => void;
+    onMakeGameMove?: (gameId: string, position: number) => void;
     watchSession?: { active: boolean; videoUrl?: string; viewerCount?: number };
     onCreateWatchSession?: (videoUrl: string) => void;
     onSyncWatch?: (action: 'play' | 'pause' | 'seek', time?: number) => void;
@@ -90,7 +105,11 @@ export default function ChatArea({
     onCreatePoll,
     onVotePoll,
     polls = {},
+    activeGames = {},
     onInviteGame,
+    onAcceptGame,
+    onRejectGame,
+    onMakeGameMove,
     watchSession = { active: false },
     onCreateWatchSession,
     onSyncWatch,
@@ -162,6 +181,25 @@ export default function ChatArea({
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [displayMessages]);
+
+    // Handle game invitations
+    useEffect(() => {
+        const handleGameInvite = (event: CustomEvent) => {
+            const { gameId, gameType, fromUser, fromUserId } = event.detail;
+            
+            // Show confirm dialog
+            const accept = window.confirm(`${fromUser} invited you to play ${gameType}. Accept?`);
+            
+            if (accept && onAcceptGame) {
+                onAcceptGame(gameId, fromUserId);
+            } else if (!accept && onRejectGame) {
+                onRejectGame(gameId);
+            }
+        };
+        
+        window.addEventListener('game-invite' as any, handleGameInvite as any);
+        return () => window.removeEventListener('game-invite' as any, handleGameInvite as any);
+    }, [onAcceptGame, onRejectGame]);
 
     // Close emoji picker on outside click
 
@@ -314,6 +352,9 @@ export default function ChatArea({
                     // Get polls for current room from polls state only
                     const roomPolls = Object.values(polls).filter(poll => poll.roomId === currentRoom);
                     
+                    // Get active games
+                    const games = Object.values(activeGames);
+                    
                     // Convert polls to items
                     const pollItems = roomPolls.map(poll => ({
                         type: 'poll' as const,
@@ -322,6 +363,18 @@ export default function ChatArea({
                         poll: poll,
                         senderId: poll.createdBy,
                         message: null as any,
+                        game: null as any,
+                    }));
+                    
+                    // Convert games to items
+                    const gameItems = games.map(game => ({
+                        type: 'game' as const,
+                        id: `game-${game.id}`,
+                        timestamp: Date.now(), // Games don't have timestamps, use current time
+                        game: game,
+                        senderId: game.players.X, // Use X player as sender
+                        message: null as any,
+                        poll: null as any,
                     }));
                     
                     // Convert messages to items (exclude poll type messages to avoid duplicates)
@@ -333,11 +386,12 @@ export default function ChatArea({
                             timestamp: normalizeTimestamp(msg.timestamp),
                             message: msg,
                             poll: null as any,
+                            game: null as any,
                             senderId: msg.senderId,
                         }));
                     
                     // Merge and sort by timestamp
-                    const allItems = [...messageItems, ...pollItems]
+                    const allItems = [...messageItems, ...pollItems, ...gameItems]
                         .sort((a, b) => a.timestamp - b.timestamp);
                     
                     if (allItems.length === 0) {
@@ -362,6 +416,26 @@ export default function ChatArea({
                                             poll={item.poll}
                                             currentUserId={currentUser?.id || ''}
                                             onVote={onVotePoll || (() => {})}
+                                        />
+                                    </div>
+                                </div>
+                            );
+                        }
+                        
+                        // Render game (Tic Tac Toe)
+                        if (item.game) {
+                            return (
+                                <div key={item.id} className="flex justify-start mb-2">
+                                    <div className="max-w-[80%]">
+                                        <TicTacToeGame
+                                            gameId={item.game.id}
+                                            board={item.game.board}
+                                            currentTurn={item.game.currentTurn}
+                                            players={item.game.players}
+                                            currentUserId={currentUser?.id || ''}
+                                            onMove={onMakeGameMove || (() => {})}
+                                            winner={item.game.winner}
+                                            status={item.game.status}
                                         />
                                     </div>
                                 </div>

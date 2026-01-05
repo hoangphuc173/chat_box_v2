@@ -1,6 +1,22 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useCallStore } from '@/stores/callStore';
 
+// Helper function to check Tic Tac Toe winner
+function checkWinner(board: string[]): string | null {
+    const lines = [
+        [0, 1, 2], [3, 4, 5], [6, 7, 8], // Rows
+        [0, 3, 6], [1, 4, 7], [2, 5, 8], // Columns
+        [0, 4, 8], [2, 4, 6]             // Diagonals
+    ];
+    
+    for (const [a, b, c] of lines) {
+        if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+            return board[a];
+        }
+    }
+    return null;
+}
+
 // Auto-detect WebSocket URL based on current page URL
 // Supports: localhost, LAN IP, VS Code Port Forwarding (devtunnels)
 const getWebSocketUrl = (): string => {
@@ -521,9 +537,41 @@ export function useWebSocket() {
                 break;
 
             case 'game_start':
-            case 'game_state':
                 setActiveGames(prev => ({ ...prev, [data.gameId]: data.game }));
                 break;
+
+            case 'game_move': {
+                const { gameId, position, playerId } = data;
+                setActiveGames(prev => {
+                    const game = prev[gameId];
+                    if (!game || game.status !== 'playing') return prev;
+                    
+                    // Determine symbol for current player
+                    const symbol = game.players.X === playerId ? 'X' : 'O';
+                    
+                    // Update board
+                    const newBoard = [...game.board];
+                    newBoard[position] = symbol;
+                    
+                    // Check for winner
+                    const winner = checkWinner(newBoard);
+                    const isDraw = !winner && newBoard.every(cell => cell !== '');
+                    
+                    // Switch turn
+                    const nextTurn = symbol === 'X' ? 'O' : 'X';
+                    
+                    const updatedGame = {
+                        ...game,
+                        board: newBoard,
+                        currentTurn: nextTurn,
+                        winner,
+                        status: (winner || isDraw) ? 'finished' as const : 'playing' as const
+                    };
+                    
+                    return { ...prev, [gameId]: updatedGame };
+                });
+                break;
+            }
 
             case 'game_end':
                 setActiveGames(prev => {
@@ -533,6 +581,11 @@ export function useWebSocket() {
                     }
                     return updated;
                 });
+                break;
+
+            case 'game_rejected':
+                console.log('Game invitation rejected:', data.gameId);
+                // Could show notification here
                 break;
 
             // Watch Together
@@ -977,8 +1030,8 @@ export function useWebSocket() {
         send({ type: 'game_invite', gameType, opponentId });
     }, [send]);
 
-    const acceptGame = useCallback((gameId: string) => {
-        send({ type: 'game_accept', gameId });
+    const acceptGame = useCallback((gameId: string, fromUserId: string) => {
+        send({ type: 'game_accept', gameId, fromUserId });
     }, [send]);
 
     const rejectGame = useCallback((gameId: string) => {

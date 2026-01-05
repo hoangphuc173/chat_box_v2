@@ -14,6 +14,7 @@ public:
                 const std::string& password,
                 const std::string& database,
                 int port = 33060);  // mysqlx port
+    ~MySQLClient();
     bool connect();
     void disconnect();
     bool isConnected() const;

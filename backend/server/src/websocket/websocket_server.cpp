@@ -1031,7 +1031,16 @@ void WebSocketServer::run() {
                         if (data->authenticated) {
                             std::string gameType = msg.value("gameType", "tictactoe");
                             std::string opponentId = msg.value("opponentId", "");
-                            std::string gameId = "game-" + std::to_string(std::time(nullptr));
+                            std::string gameId = "game-" + std::to_string(std::time(nullptr)) + "-" + std::to_string(rand());
+                            
+                            // Store pending invite
+                            json gameInfo = {
+                                {"gameId", gameId},
+                                {"gameType", gameType},
+                                {"inviter", data->userId},
+                                {"inviterName", data->username},
+                                {"invitee", opponentId}
+                            };
                             
                             json inviteMsg = {
                                 {"type", "game_invite"},
@@ -1049,14 +1058,15 @@ void WebSocketServer::run() {
                     else if (type == "game_accept") {
                         if (data->authenticated) {
                             std::string gameId = msg.value("gameId", "");
+                            std::string inviterId = msg.value("fromUserId", "");
                             
                             // Create initial game state
                             json gameState = {
                                 {"id", gameId},
                                 {"type", "tictactoe"},
-                                {"board", json::array({nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr})},
-                                {"currentTurn", data->userId},
-                                {"players", {{"X", data->userId}, {"O", ""}}},
+                                {"board", json::array({"", "", "", "", "", "", "", "", ""})},
+                                {"currentTurn", "X"},
+                                {"players", {{"X", inviterId}, {"O", data->userId}}},
                                 {"winner", nullptr},
                                 {"status", "playing"}
                             };
@@ -1066,13 +1076,24 @@ void WebSocketServer::run() {
                                 {"gameId", gameId},
                                 {"game", gameState}
                             };
-                            broadcast(gameStartMsg.dump());
-                            Logger::info("🎮 Game started: " + gameId);
+                            
+                            std::string gameMsg = gameStartMsg.dump();
+                            
+                            // Send to both players explicitly
+                            sendToUser(inviterId, gameMsg);  // Send to inviter (X player)
+                            sendToUser(data->userId, gameMsg);  // Send to accepter (O player)
+                            
+                            Logger::info("🎮 Game started: " + gameId + " between " + inviterId + " and " + data->userId);
                         }
                     }
                     else if (type == "game_reject") {
                         if (data->authenticated) {
                             std::string gameId = msg.value("gameId", "");
+                            json rejectMsg = {
+                                {"type", "game_rejected"},
+                                {"gameId", gameId}
+                            };
+                            broadcast(rejectMsg.dump());
                             Logger::info("🎮 Game rejected: " + gameId);
                         }
                     }
@@ -1081,14 +1102,15 @@ void WebSocketServer::run() {
                             std::string gameId = msg.value("gameId", "");
                             int position = msg.value("position", -1);
                             
+                            // Broadcast move to all connected users (they will filter by gameId)
                             json moveMsg = {
-                                {"type", "game_state"},
+                                {"type", "game_move"},
                                 {"gameId", gameId},
                                 {"position", position},
                                 {"playerId", data->userId}
                             };
                             broadcast(moveMsg.dump());
-                            Logger::info("🎮 Game move in " + gameId);
+                            Logger::info("🎮 Game move in " + gameId + " at position " + std::to_string(position) + " by " + data->userId);
                         }
                     }
                     // ============== Watch Together ==============

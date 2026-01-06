@@ -1,15 +1,25 @@
 // WebSocket client for JSON protocol communication with C++ backend
 
-// Auto-detect WebSocket URL based on current page URL
+// Auto-detect WebSocket URL based on current page URL,
+// but prefer explicit backend origin when provided.
 const getWebSocketUrl = (): string => {
+    // Allow override via env: VITE_BACKEND_ORIGIN (e.g. https://api.example.com:8080)
+    const backendOrigin = (import.meta as any).env?.VITE_BACKEND_ORIGIN as string | undefined;
+    if (backendOrigin) {
+        // Convert http(s) origin to ws(s)
+        const url = new URL(backendOrigin);
+        const wsProtocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+        return `${wsProtocol}//${url.host}`;
+    }
+
     const { protocol, hostname } = window.location;
-    
+
     // VS Code Port Forwarding: hostname contains devtunnels.ms
     if (hostname.includes('devtunnels.ms')) {
         const wsHost = hostname.replace(/-\d+\./, '-8080.');
         return `wss://${wsHost}`;
     }
-    
+
     // Local/LAN: use same host with port 8080
     const wsProtocol = protocol === 'https:' ? 'wss:' : 'ws:';
     return `${wsProtocol}//${hostname}:8080`;

@@ -25,7 +25,12 @@ aws-sdk-cpp/
 .env
 .env.local
 .env.*.local
+.env.production
 *.local
+
+# Package locks (regenerated on install)
+package-lock.json
+!frontend/package-lock.json
 
 # IDE
 .vscode/

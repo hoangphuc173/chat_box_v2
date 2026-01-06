@@ -949,15 +949,6 @@ export function useWebSocket() {
         send({ type: 'kick_user', targetUserId: userId, roomId });
     }, [send]);
 
-    // Special Message Types
-    const sendSticker = useCallback((sticker: string, roomId: string) => {
-        send({ type: 'chat_sticker', sticker, roomId });
-    }, [send]);
-
-    const sendLocation = useCallback((latitude: number, longitude: number, roomId: string) => {
-        send({ type: 'chat_location', latitude, longitude, roomId });
-    }, [send]);
-
     // Polls
     const createPoll = useCallback((question: string, options: string[]) => {
         console.log('📊 Creating poll in room:', currentRoomId, 'Question:', question);
@@ -1060,9 +1051,6 @@ export function useWebSocket() {
         blockUser,
         unblockUser,
         kickUser,
-        // Special Message Types
-        sendSticker,
-        sendLocation,
         // Features
         polls,
         createPoll,

@@ -804,7 +804,8 @@ void WebSocketServer::run() {
                             // Call Gemini API asynchronously
                             std::thread([this, ws, message, userId = data->userId]() {
                                 try {
-                                    std::string response = geminiClient_->chat(message);
+                                    auto result = geminiClient_->sendMessage(message);
+                                    std::string response = result.value_or("No response from AI");
                                     Logger::info("✅ AI response received");
                                     
                                     json responseJson = {

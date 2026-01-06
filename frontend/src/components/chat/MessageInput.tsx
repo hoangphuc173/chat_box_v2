@@ -98,7 +98,9 @@ export function MessageInput({ onSend }: MessageInputProps) {
         inputRef.current?.focus()
     }
 
-    const handleEmojiClick = (emojiData: EmojiClickData) => {
+    const handleEmojiClick = (emojiData: EmojiClickData, event?: MouseEvent) => {
+        event?.stopPropagation()
+        event?.preventDefault()
         const newMessage = message + emojiData.emoji
         setMessage(newMessage)
         setShowEmojiPicker(false)

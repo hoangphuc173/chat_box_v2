@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import type { MessageMetadata } from '@/types/chat.types';
 
 interface Message {
@@ -48,9 +48,24 @@ export const MessageBubble = React.memo(({
     quickReactions
 }: MessageBubbleProps) => {
     const [editContent, setEditContent] = useState(message.content);
+    const reactionTimeoutRef = useRef<{ [key: string]: ReturnType<typeof setTimeout> }>({});
 
     const handleEditSaveInternal = () => {
         onEditSave(message.id, editContent);
+    };
+
+    const handleReactionClick = (emoji: string) => {
+        // Prevent double-click within 300ms
+        const key = `${message.id}-${emoji}`;
+        if (reactionTimeoutRef.current[key]) {
+            return;
+        }
+        
+        onReactionAdd(message.id, emoji);
+        
+        reactionTimeoutRef.current[key] = setTimeout(() => {
+            delete reactionTimeoutRef.current[key];
+        }, 300);
     };
 
     const formatTime = (timestamp: number) => {
@@ -231,7 +246,7 @@ export const MessageBubble = React.memo(({
                             {quickReactions.map(emoji => (
                                 <button
                                     key={emoji}
-                                    onClick={() => onReactionAdd(message.id, emoji)}
+                                    onClick={() => handleReactionClick(emoji)}
                                     className="w-8 h-8 flex items-center justify-center bg-transparent border-none rounded-lg text-lg cursor-pointer hover:scale-125 transition-transform"
                                 >
                                     {emoji}

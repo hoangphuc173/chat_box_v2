@@ -52,6 +52,11 @@ export function CallManager() {
         }
 
         try {
+            // Check if mediaDevices is available (requires HTTPS or localhost)
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                throw new Error('WebRTC is not supported. Please use HTTPS or localhost.')
+            }
+
             const constraints = {
                 video: callType === 'video' || callType === undefined,
                 audio: true
@@ -138,6 +143,11 @@ export function CallManager() {
             // Get user media - reuse existing stream if available
             let stream = localStreamRef.current
             if (!stream) {
+                // Check if mediaDevices is available (requires HTTPS or localhost)
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    throw new Error('WebRTC is not supported. Please use HTTPS or localhost.')
+                }
+
                 const constraints = {
                     video: callType === 'video' || callType === undefined,
                     audio: true

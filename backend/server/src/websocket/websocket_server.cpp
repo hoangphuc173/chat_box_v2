@@ -208,7 +208,7 @@ void WebSocketServer::run() {
 
                     json response = {
                         {"status", "ok"},
-                        {"url", "http://localhost:8080/uploads/" + state->storageFilename},
+                        {"url", "http://103.56.163.137:8080/uploads/" + state->storageFilename},
                         {"filename", state->filename},
                         {"size", state->totalBytes},
                         {"sizeFormatted", sizeStr}

@@ -4,6 +4,7 @@
 *.p12
 *.pfx
 chat-server-key.pem
+.ssh_password
 
 # Build artifacts
 build/
@@ -14,12 +15,20 @@ dist/
 *.a
 *.so
 *.dll
+*.lib
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+*.vcxproj
+*.vcxproj.filters
+*.sln
 
 # Dependencies
 node_modules/
 vcpkg/
 aws-sdk-cpp/
 .vcpkg/
+third_party/
 
 # Environment
 .env
@@ -58,3 +67,10 @@ coverage/
 tmp/
 temp/
 *.tmp
+
+# Archives
+*.tar.gz
+*.zip
+
+# Uploads (user generated content)
+uploads/

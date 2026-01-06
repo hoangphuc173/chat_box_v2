@@ -28,6 +28,7 @@ function App() {
         editMessage,
         deleteMessage,
         addReaction,
+        removeReaction,
         login,
         register,
         startCall,
@@ -206,6 +207,7 @@ function App() {
                 onEditMessage={(messageId, newContent) => editMessage(messageId, newContent)}
                 onDeleteMessage={(messageId) => deleteMessage(messageId)}
                 onAddReaction={addReaction}
+                onRemoveReaction={removeReaction}
                 onStartCall={currentRoom?.startsWith('dm_') ? (type) => {
                     // Extract user ID from DM room ID (format: dm_userId)
                     const targetUserId = currentRoom.replace('dm_', '');

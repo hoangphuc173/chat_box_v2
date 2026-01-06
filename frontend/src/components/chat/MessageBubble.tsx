@@ -26,6 +26,8 @@ interface MessageBubbleProps {
     onPin: (id: string) => void;
     onReply: (message: Message) => void;
     onReactionAdd: (id: string, emoji: string) => void;
+    onReactionRemove: (id: string, emoji: string) => void;
+    currentUserId: string;
     showReactionPicker: boolean;
     onToggleReactionPicker: (id: string | null) => void;
     quickReactions: string[];
@@ -43,6 +45,8 @@ export const MessageBubble = React.memo(({
     onPin,
     onReply,
     onReactionAdd,
+    onReactionRemove,
+    currentUserId,
     showReactionPicker,
     onToggleReactionPicker,
     quickReactions
@@ -61,7 +65,21 @@ export const MessageBubble = React.memo(({
             return;
         }
         
-        onReactionAdd(message.id, emoji);
+        // Check if current user already reacted with this emoji
+        const userReaction = message.reactions?.find(r => r.userId === currentUserId && r.emoji === emoji);
+        
+        if (userReaction) {
+            // Toggle: remove reaction
+            onReactionRemove(message.id, emoji);
+        } else {
+            // Check if user has another reaction on this message
+            const existingReaction = message.reactions?.find(r => r.userId === currentUserId);
+            if (existingReaction) {
+                // Replace: remove old, add new (backend will handle atomically)
+                onReactionRemove(message.id, existingReaction.emoji);
+            }
+            onReactionAdd(message.id, emoji);
+        }
         
         reactionTimeoutRef.current[key] = setTimeout(() => {
             delete reactionTimeoutRef.current[key];

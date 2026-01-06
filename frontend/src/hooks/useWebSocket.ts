@@ -364,6 +364,24 @@ export function useWebSocket() {
                 });
                 break;
 
+            case 'reaction_removed':
+                setMessages(prev => {
+                    const newMessages = { ...prev };
+                    for (const roomId in newMessages) {
+                        newMessages[roomId] = newMessages[roomId].map(m => {
+                            if (m.id === data.messageId) {
+                                const reactions = ((m as any).reactions || []).filter(
+                                    (r: any) => !(r.userId === data.userId && r.emoji === data.emoji)
+                                );
+                                return { ...m, reactions };
+                            }
+                            return m;
+                        });
+                    }
+                    return newMessages;
+                });
+                break;
+
             case 'error':
                 console.error('Server error:', data.message || data.error);
                 break;
@@ -935,6 +953,15 @@ export function useWebSocket() {
         });
     }, [send, currentRoomId]);
 
+    const removeReaction = useCallback((messageId: string, emoji: string) => {
+        send({
+            type: 'remove_reaction',
+            messageId,
+            emoji,
+            roomId: currentRoomId
+        });
+    }, [send, currentRoomId]);
+
     // Send typing status to current room
     const sendTypingStatus = useCallback((isTyping: boolean) => {
         send({
@@ -1124,6 +1151,7 @@ export function useWebSocket() {
         editMessage,
         deleteMessage,
         addReaction,
+        removeReaction,
         // New features
         typingUsers,
         roomMembers,

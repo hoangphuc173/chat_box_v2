@@ -63,6 +63,7 @@ interface ChatAreaProps {
     onEditMessage?: (messageId: string, newContent: string) => void;
     onDeleteMessage?: (messageId: string) => void;
     onAddReaction?: (messageId: string, emoji: string) => void;
+    onRemoveReaction?: (messageId: string, emoji: string) => void;
     onStartCall?: (type: 'audio' | 'video') => void;
     // New feature props
     typingUsers?: { id: string; username: string }[];
@@ -100,6 +101,7 @@ export default function ChatArea({
     onEditMessage,
     onDeleteMessage,
     onAddReaction,
+    onRemoveReaction,
     onStartCall,
     typingUsers = [],
     onCreatePoll,
@@ -462,6 +464,8 @@ export default function ChatArea({
                                     onPin={handlePinMessage}
                                     onReply={setReplyingTo}
                                     onReactionAdd={(id, emoji) => onAddReaction?.(id, emoji)}
+                                    onReactionRemove={(id, emoji) => onRemoveReaction?.(id, emoji)}
+                                    currentUserId={currentUser?.id || ''}
                                     showReactionPicker={showReactionPicker === item.id}
                                     onToggleReactionPicker={setShowReactionPicker}
                                     quickReactions={quickReactions}

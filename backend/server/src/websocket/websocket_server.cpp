@@ -1375,6 +1375,54 @@ void WebSocketServer::run() {
                             sendErrorJson((void*)ws, "Not authenticated");
                         }
                     }
+                    // ============== Location Message ==============
+                    else if (type == "chat_location") {
+                        if (data->authenticated) {
+                            double latitude = msg.value("latitude", 0.0);
+                            double longitude = msg.value("longitude", 0.0);
+                            std::string roomId = msg.value("roomId", "global");
+                            
+                            if (latitude == 0.0 && longitude == 0.0) {
+                                sendErrorJson((void*)ws, "latitude and longitude required");
+                            } else {
+                                uint64_t now = static_cast<uint64_t>(std::time(nullptr));
+                                std::string messageId = "loc-" + std::to_string(now) + "-" + data->userId.substr(0, 8);
+                                
+                                std::string locationStr = std::to_string(latitude) + "," + std::to_string(longitude);
+                                
+                                Message locMsg;
+                                locMsg.messageId = messageId;
+                                locMsg.roomId = roomId;
+                                locMsg.senderId = data->userId;
+                                locMsg.senderName = data->username;
+                                locMsg.content = "[location:" + locationStr + "]";
+                                locMsg.timestamp = now;
+                                locMsg.metadata = "{\"type\": \"location\", \"latitude\": " + std::to_string(latitude) + ", \"longitude\": " + std::to_string(longitude) + "}";
+                                
+                                if (dbClient_->createMessage(locMsg)) {
+                                    json response = {
+                                        {"type", "chat"},
+                                        {"messageType", "location"},
+                                        {"messageId", messageId},
+                                        {"roomId", roomId},
+                                        {"userId", data->userId},
+                                        {"username", data->username},
+                                        {"latitude", latitude},
+                                        {"longitude", longitude},
+                                        {"timestamp", now * 1000}
+                                    };
+                                    std::string responseStr = response.dump();
+                                    sendJsonMessage((void*)ws, responseStr);  // Echo to sender
+                                    broadcastToRoom(roomId, responseStr, data->userId);  // Broadcast to others
+                                    Logger::info("📍 Location sent by " + data->username);
+                                } else {
+                                    sendErrorJson((void*)ws, "Failed to send location");
+                                }
+                            }
+                        } else {
+                            sendErrorJson((void*)ws, "Not authenticated");
+                        }
+                    }
                     else {
                         Logger::warning("Unknown message type: " + type);
                         sendErrorJson((void*)ws, "Unknown message type");

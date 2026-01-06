@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect } from 'react'
-import { Send, Smile, Paperclip } from 'lucide-react'
+import { Send, Smile, Paperclip, MapPin } from 'lucide-react'
 import EmojiPicker, { EmojiClickData, Theme } from 'emoji-picker-react'
 import { useWebSocket } from '@/contexts/WebSocketContext'
 import { useFileUpload } from '@/hooks/useFileUpload'
 import { CommandMenu } from './CommandMenu'
 import { UploadProgressBar } from './UploadProgressBar'
 import { VoiceRecorder } from './VoiceRecorder'
+import { LocationPicker } from './LocationPicker'
 
 interface MessageInputProps {
     onSend?: (content: string, metadata?: any) => void
@@ -14,11 +15,12 @@ interface MessageInputProps {
 export function MessageInput({ onSend }: MessageInputProps) {
     const [message, setMessage] = useState('')
     const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+    const [showLocationPicker, setShowLocationPicker] = useState(false)
     const [showCommandMenu, setShowCommandMenu] = useState(false)
     const [commandFilter, setCommandFilter] = useState('')
     const [isRecording, setIsRecording] = useState(false)
 
-    const { sendMessage, isConnected, sendTypingStatus, currentRoomId, ws } = useWebSocket()
+    const { sendMessage, isConnected, sendTypingStatus, currentRoomId, ws, sendLocation } = useWebSocket()
     const {
         filePreview,
         uploadProgress,
@@ -99,6 +101,11 @@ export function MessageInput({ onSend }: MessageInputProps) {
         setMessage(newMessage)
         setShowEmojiPicker(false)
         inputRef.current?.focus()
+    }
+
+    const handleLocationSelect = (latitude: number, longitude: number, _locationName?: string) => {
+        sendLocation(latitude, longitude, currentRoomId)
+        setShowLocationPicker(false)
     }
 
     // Cleanup on unmount
@@ -223,11 +230,25 @@ export function MessageInput({ onSend }: MessageInputProps) {
 
                             {/* Action buttons row */}
                             <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                                {/* Location button */}
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setShowLocationPicker(!showLocationPicker)
+                                        setShowEmojiPicker(false)
+                                    }}
+                                    className="text-slate-400 hover:text-purple-400 transition-colors p-1"
+                                    title="Share location"
+                                >
+                                    <MapPin className="w-4 h-4" />
+                                </button>
+
                                 {/* Emoji button */}
                                 <button
                                     type="button"
                                     onClick={() => {
                                         setShowEmojiPicker(!showEmojiPicker)
+                                        setShowLocationPicker(false)
                                     }}
                                     className="text-slate-400 hover:text-purple-400 transition-colors p-1"
                                     title="Add emoji"
@@ -244,6 +265,17 @@ export function MessageInput({ onSend }: MessageInputProps) {
                                         theme={Theme.DARK}
                                         width={350}
                                         height={400}
+                                    />
+                                </div>
+                            )}
+
+                            {/* Location picker popup */}
+                            {showLocationPicker && (
+                                <div className="absolute bottom-full right-0 mb-2 z-50">
+                                    <LocationPicker
+                                        isOpen={showLocationPicker}
+                                        onSelectLocation={handleLocationSelect}
+                                        onClose={() => setShowLocationPicker(false)}
                                     />
                                 </div>
                             )}

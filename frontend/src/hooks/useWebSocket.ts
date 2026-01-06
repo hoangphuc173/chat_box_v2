@@ -1051,6 +1051,8 @@ export function useWebSocket() {
         blockUser,
         unblockUser,
         kickUser,
+        // Special Message Types
+        sendLocation,
         // Features
         polls,
         createPoll,

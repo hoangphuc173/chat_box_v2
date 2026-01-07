@@ -2,7 +2,7 @@
 #include "pubsub/pubsub_broker.h"
 #include "utils/logger.h"
 #include "socket_data.h"
-#include <WebSocket.h>
+#include <uwebsockets/WebSocket.h>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -367,7 +367,7 @@ void FileHandler::handleUploadFinalize(void* wsPtr,
         Logger::info("✅ File assembled successfully: " + finalPath);
 
         // Generate file URL
-        std::string fileUrl = "http://localhost:8080/uploads/" + finalFileName;
+        std::string fileUrl = "http://103.56.163.137:8080/uploads/" + finalFileName;
 
         // Detect if voice message
         bool isVoiceMessage = session.mimeType.find("audio/") == 0;

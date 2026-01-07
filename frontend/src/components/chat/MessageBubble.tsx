@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import type { MessageMetadata } from '@/types/chat.types';
 
 interface Message {
@@ -26,6 +26,8 @@ interface MessageBubbleProps {
     onPin: (id: string) => void;
     onReply: (message: Message) => void;
     onReactionAdd: (id: string, emoji: string) => void;
+    onReactionRemove: (id: string, emoji: string) => void;
+    currentUserId: string;
     showReactionPicker: boolean;
     onToggleReactionPicker: (id: string | null) => void;
     quickReactions: string[];
@@ -43,14 +45,45 @@ export const MessageBubble = React.memo(({
     onPin,
     onReply,
     onReactionAdd,
+    onReactionRemove,
+    currentUserId,
     showReactionPicker,
     onToggleReactionPicker,
     quickReactions
 }: MessageBubbleProps) => {
     const [editContent, setEditContent] = useState(message.content);
+    const reactionTimeoutRef = useRef<{ [key: string]: ReturnType<typeof setTimeout> }>({});
 
     const handleEditSaveInternal = () => {
         onEditSave(message.id, editContent);
+    };
+
+    const handleReactionClick = (emoji: string) => {
+        // Prevent double-click within 300ms
+        const key = `${message.id}-${emoji}`;
+        if (reactionTimeoutRef.current[key]) {
+            return;
+        }
+        
+        // Check if current user already reacted with this emoji
+        const userReaction = message.reactions?.find(r => r.userId === currentUserId && r.emoji === emoji);
+        
+        if (userReaction) {
+            // Toggle: remove reaction
+            onReactionRemove(message.id, emoji);
+        } else {
+            // Check if user has another reaction on this message
+            const existingReaction = message.reactions?.find(r => r.userId === currentUserId);
+            if (existingReaction) {
+                // Replace: remove old, add new (backend will handle atomically)
+                onReactionRemove(message.id, existingReaction.emoji);
+            }
+            onReactionAdd(message.id, emoji);
+        }
+        
+        reactionTimeoutRef.current[key] = setTimeout(() => {
+            delete reactionTimeoutRef.current[key];
+        }, 300);
     };
 
     const formatTime = (timestamp: number) => {
@@ -231,7 +264,7 @@ export const MessageBubble = React.memo(({
                             {quickReactions.map(emoji => (
                                 <button
                                     key={emoji}
-                                    onClick={() => onReactionAdd(message.id, emoji)}
+                                    onClick={() => handleReactionClick(emoji)}
                                     className="w-8 h-8 flex items-center justify-center bg-transparent border-none rounded-lg text-lg cursor-pointer hover:scale-125 transition-transform"
                                 >
                                     {emoji}

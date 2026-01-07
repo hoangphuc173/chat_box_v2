@@ -28,6 +28,7 @@ function App() {
         editMessage,
         deleteMessage,
         addReaction,
+        removeReaction,
         login,
         register,
         startCall,
@@ -35,7 +36,11 @@ function App() {
         typingUsers,
         createPoll,
         votePoll,
+        activeGames,
         inviteGame,
+        acceptGame,
+        rejectGame,
+        makeGameMove,
         watchSession,
         createWatchSession,
         syncWatch,
@@ -45,6 +50,7 @@ function App() {
         updateProfile,
         profileUpdate,
         clearProfileUpdate,
+        roomMembers,
         // AI Chat
         aiMessages,
         aiLoading,
@@ -201,6 +207,7 @@ function App() {
                 onEditMessage={(messageId, newContent) => editMessage(messageId, newContent)}
                 onDeleteMessage={(messageId) => deleteMessage(messageId)}
                 onAddReaction={addReaction}
+                onRemoveReaction={removeReaction}
                 onStartCall={currentRoom?.startsWith('dm_') ? (type) => {
                     // Extract user ID from DM room ID (format: dm_userId)
                     const targetUserId = currentRoom.replace('dm_', '');
@@ -212,7 +219,11 @@ function App() {
                 onCreatePoll={createPoll}
                 onVotePoll={votePoll}
                 polls={polls}
+                activeGames={activeGames}
                 onInviteGame={inviteGame}
+                onAcceptGame={acceptGame}
+                onRejectGame={rejectGame}
+                onMakeGameMove={makeGameMove}
                 watchSession={watchSession}
                 onCreateWatchSession={createWatchSession}
                 onSyncWatch={syncWatch}
@@ -229,10 +240,11 @@ function App() {
                 onClearAIMessages={clearAIMessages}
             />
 
-            {showRightPanel && currentRoom && activeTab === 'rooms' && (
+            {showRightPanel && currentRoom && (
                 <RightPanel
                     roomId={currentRoom}
                     users={users}
+                    roomMembers={roomMembers[currentRoom] || []}
                     messages={messages[currentRoom] || []}
                     onClose={() => setShowRightPanel(false)}
                     onLeaveRoom={currentRoom !== 'global' ? () => {

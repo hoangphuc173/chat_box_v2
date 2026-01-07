@@ -2,7 +2,7 @@
 #include "utils/logger.h"
 #include "database/types.h"
 #include "ai/gemini_client.h"
-#include <App.h>
+#include <uwebsockets/App.h>
 #include <nlohmann/json.hpp>
 #include <thread>
 #include <filesystem>
@@ -208,7 +208,7 @@ void WebSocketServer::run() {
 
                     json response = {
                         {"status", "ok"},
-                        {"url", "http://localhost:8080/uploads/" + state->storageFilename},
+                        {"url", "http://103.56.163.137:8080/uploads/" + state->storageFilename},
                         {"filename", state->filename},
                         {"size", state->totalBytes},
                         {"sizeFormatted", sizeStr}
@@ -804,16 +804,25 @@ void WebSocketServer::run() {
                             // Call Gemini API asynchronously
                             std::thread([this, ws, message, userId = data->userId]() {
                                 try {
-                                    std::string response = geminiClient_->chat(message);
-                                    Logger::info("✅ AI response received");
-                                    
-                                    json responseJson = {
-                                        {"type", "ai_response"},
-                                        {"response", response}
-                                    };
-                                    
-                                    // Send response back to client
-                                    sendJsonMessage((void*)ws, responseJson.dump());
+                                    auto response = geminiClient_->sendMessage(message);
+                                    if (response.has_value()) {
+                                        Logger::info("✅ AI response received");
+                                        
+                                        json responseJson = {
+                                            {"type", "ai_response"},
+                                            {"response", response.value()}
+                                        };
+                                        
+                                        // Send response back to client
+                                        sendJsonMessage((void*)ws, responseJson.dump());
+                                    } else {
+                                        Logger::error("❌ AI request failed: No response");
+                                        json errorJson = {
+                                            {"type", "ai_error"},
+                                            {"error", "Failed to get AI response"}
+                                        };
+                                        sendJsonMessage((void*)ws, errorJson.dump());
+                                    }
                                 } catch (const std::exception& e) {
                                     Logger::error("❌ AI request failed: " + std::string(e.what()));
                                     json errorJson = {
@@ -1022,7 +1031,16 @@ void WebSocketServer::run() {
                         if (data->authenticated) {
                             std::string gameType = msg.value("gameType", "tictactoe");
                             std::string opponentId = msg.value("opponentId", "");
-                            std::string gameId = "game-" + std::to_string(std::time(nullptr));
+                            std::string gameId = "game-" + std::to_string(std::time(nullptr)) + "-" + std::to_string(rand());
+                            
+                            // Store pending invite
+                            json gameInfo = {
+                                {"gameId", gameId},
+                                {"gameType", gameType},
+                                {"inviter", data->userId},
+                                {"inviterName", data->username},
+                                {"invitee", opponentId}
+                            };
                             
                             json inviteMsg = {
                                 {"type", "game_invite"},
@@ -1040,14 +1058,15 @@ void WebSocketServer::run() {
                     else if (type == "game_accept") {
                         if (data->authenticated) {
                             std::string gameId = msg.value("gameId", "");
+                            std::string inviterId = msg.value("fromUserId", "");
                             
                             // Create initial game state
                             json gameState = {
                                 {"id", gameId},
                                 {"type", "tictactoe"},
-                                {"board", json::array({nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr})},
-                                {"currentTurn", data->userId},
-                                {"players", {{"X", data->userId}, {"O", ""}}},
+                                {"board", json::array({"", "", "", "", "", "", "", "", ""})},
+                                {"currentTurn", "X"},
+                                {"players", {{"X", inviterId}, {"O", data->userId}}},
                                 {"winner", nullptr},
                                 {"status", "playing"}
                             };
@@ -1057,13 +1076,24 @@ void WebSocketServer::run() {
                                 {"gameId", gameId},
                                 {"game", gameState}
                             };
-                            broadcast(gameStartMsg.dump());
-                            Logger::info("🎮 Game started: " + gameId);
+                            
+                            std::string gameMsg = gameStartMsg.dump();
+                            
+                            // Send to both players explicitly
+                            sendToUser(inviterId, gameMsg);  // Send to inviter (X player)
+                            sendToUser(data->userId, gameMsg);  // Send to accepter (O player)
+                            
+                            Logger::info("🎮 Game started: " + gameId + " between " + inviterId + " and " + data->userId);
                         }
                     }
                     else if (type == "game_reject") {
                         if (data->authenticated) {
                             std::string gameId = msg.value("gameId", "");
+                            json rejectMsg = {
+                                {"type", "game_rejected"},
+                                {"gameId", gameId}
+                            };
+                            broadcast(rejectMsg.dump());
                             Logger::info("🎮 Game rejected: " + gameId);
                         }
                     }
@@ -1072,14 +1102,15 @@ void WebSocketServer::run() {
                             std::string gameId = msg.value("gameId", "");
                             int position = msg.value("position", -1);
                             
+                            // Broadcast move to all connected users (they will filter by gameId)
                             json moveMsg = {
-                                {"type", "game_state"},
+                                {"type", "game_move"},
                                 {"gameId", gameId},
                                 {"position", position},
                                 {"playerId", data->userId}
                             };
                             broadcast(moveMsg.dump());
-                            Logger::info("🎮 Game move in " + gameId);
+                            Logger::info("🎮 Game move in " + gameId + " at position " + std::to_string(position) + " by " + data->userId);
                         }
                     }
                     // ============== Watch Together ==============
@@ -2387,6 +2418,20 @@ void WebSocketServer::handleJoinRoomJson(void* wsPtr, const std::string& jsonStr
         // Get room members
         auto members = dbClient_->getRoomMembers(roomId);
         
+        // Build members array with user info
+        json membersJson = json::array();
+        for (const auto& memberId : members) {
+            auto userOpt = dbClient_->getUserById(memberId);
+            if (userOpt) {
+                json memberObj = {
+                    {"userId", userOpt->userId},
+                    {"username", userOpt->username},
+                    {"avatar", userOpt->avatarUrl}
+                };
+                membersJson.push_back(memberObj);
+            }
+        }
+        
         // Load active polls for this room (try both roomId and queryRoomId for DM)
         auto roomPolls = dbClient_->getRoomPolls(roomId, false);
         if (roomPolls.empty() && roomId != queryRoomId) {
@@ -2422,6 +2467,7 @@ void WebSocketServer::handleJoinRoomJson(void* wsPtr, const std::string& jsonStr
             {"username", data->username},
             {"history", history},
             {"memberCount", members.size()},
+            {"members", membersJson},
             {"polls", pollsJson}
         };
         
@@ -2521,7 +2567,7 @@ void WebSocketServer::handleGetRoomsJson(void* wsPtr) {
             auto session = dbClient_->getSession();
             if (session) {
                 auto result = session->sql(
-                    "SELECT r.room_id, r.room_name, r.room_type, rm.role "
+                    "SELECT r.room_id, r.name, r.room_type, rm.role "
                     "FROM rooms r "
                     "JOIN room_members rm ON r.room_id = rm.room_id "
                     "WHERE rm.user_id = ? ORDER BY r.created_at DESC"

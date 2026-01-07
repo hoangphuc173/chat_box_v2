@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import UserSearchModal from '../chat/UserSearchModal';
 import { useTheme } from '../providers/ThemeProvider';
+import { RoomManager } from '../room/RoomManager';
 
 type PresenceStatus = 'online' | 'away' | 'dnd' | 'invisible';
 
@@ -74,6 +75,7 @@ export default function Sidebar({
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
     const [isAIChatOpen, setIsAIChatOpen] = useState(false);
+    const [isRoomManagerOpen, setIsRoomManagerOpen] = useState(false);
     const statusDropdownRef = useRef<HTMLDivElement>(null);
     const avatarInputRef = useRef<HTMLInputElement>(null);
 
@@ -203,9 +205,17 @@ export default function Sidebar({
         }
     };
 
-    const filteredRooms = rooms.filter(room =>
-        room.name?.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const filteredRooms = rooms.filter(room => {
+        const name = (room as any).name || (room as any).roomName || '';
+        return name.toLowerCase().includes(searchQuery.toLowerCase());
+    }).map(room => ({
+        // Normalize room format to use consistent properties
+        id: (room as any).id || (room as any).roomId,
+        name: (room as any).name || (room as any).roomName,
+        unreadCount: (room as any).unreadCount || (room as any).unread || 0,
+        lastMessage: (room as any).lastMessage,
+        ...room
+    }));
 
     const filteredUsers = users.filter(user =>
         user.username?.toLowerCase().includes(searchQuery.toLowerCase()) &&
@@ -419,8 +429,9 @@ export default function Sidebar({
                     <span>{activeTab === 'rooms' ? 'Channels' : 'Direct Messages'}</span>
                     {activeTab === 'rooms' && (
                         <button
-                            onClick={() => setIsCreatingRoom(true)}
+                            onClick={() => setIsRoomManagerOpen(true)}
                             className="w-6 h-6 flex items-center justify-center bg-transparent border-none rounded-md text-slate-500 cursor-pointer hover:bg-white/5 hover:text-slate-300 transition-colors"
+                            title="Manage Rooms"
                         >
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                 <line x1="12" y1="5" x2="12" y2="19" />
@@ -1125,6 +1136,16 @@ export default function Sidebar({
                     </div>
                 </div>
             )}
+
+            {/* Room Manager Modal */}
+            <RoomManager
+                isOpen={isRoomManagerOpen}
+                onClose={() => setIsRoomManagerOpen(false)}
+                onRoomSelect={(roomId) => {
+                    onRoomSelect(roomId);
+                    setIsRoomManagerOpen(false);
+                }}
+            />
         </aside>
     );
 }

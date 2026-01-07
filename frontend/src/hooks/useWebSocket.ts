@@ -1,6 +1,22 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useCallStore } from '@/stores/callStore';
 
+// Helper function to check Tic Tac Toe winner
+function checkWinner(board: string[]): string | null {
+    const lines = [
+        [0, 1, 2], [3, 4, 5], [6, 7, 8], // Rows
+        [0, 3, 6], [1, 4, 7], [2, 5, 8], // Columns
+        [0, 4, 8], [2, 4, 6]             // Diagonals
+    ];
+    
+    for (const [a, b, c] of lines) {
+        if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+            return board[a];
+        }
+    }
+    return null;
+}
+
 // Auto-detect WebSocket URL based on current page URL
 // Supports: localhost, LAN IP, VS Code Port Forwarding (devtunnels)
 const getWebSocketUrl = (): string => {
@@ -111,6 +127,7 @@ export function useWebSocket() {
     const [watchSession, setWatchSession] = useState<{ active: boolean; videoUrl?: string; viewerCount?: number }>({ active: false });
     const [myPresence, setMyPresence] = useState<'online' | 'away' | 'dnd' | 'invisible'>('online');
     const [profileUpdate, setProfileUpdate] = useState<{ userId: string; displayName?: string; statusMessage?: string; avatar?: string } | null>(null);
+    const [roomMembers, setRoomMembers] = useState<Record<string, any[]>>({});  // roomId -> members array
 
     // AI Chat state
     const [aiMessages, setAiMessages] = useState<AIMessage[]>([]);
@@ -166,6 +183,11 @@ export function useWebSocket() {
         switch (data.type) {
             case 'auth_success':
                 console.log('Authenticated');
+                // Auto-load rooms after successful authentication
+                if (wsRef.current?.readyState === WebSocket.OPEN) {
+                    wsRef.current.send(JSON.stringify({ type: 'get_rooms' }));
+                    wsRef.current.send(JSON.stringify({ type: 'get_users' }));
+                }
                 break;
 
             case 'chat':
@@ -295,6 +317,7 @@ export function useWebSocket() {
                 break;
 
             case 'message_pinned':
+                console.log('📌 Received message_pinned:', data);
                 setMessages(prev => {
                     const newMessages = { ...prev };
                     const roomId = data.roomId;
@@ -304,6 +327,7 @@ export function useWebSocket() {
                                 ? { ...m, isPinned: true }
                                 : m
                         );
+                        console.log('📌 Updated messages for room', roomId, newMessages[roomId].filter(m => m.isPinned));
                     }
                     return newMessages;
                 });
@@ -339,6 +363,24 @@ export function useWebSocket() {
                                         username: data.username
                                     }]
                                 };
+                            }
+                            return m;
+                        });
+                    }
+                    return newMessages;
+                });
+                break;
+
+            case 'reaction_removed':
+                setMessages(prev => {
+                    const newMessages = { ...prev };
+                    for (const roomId in newMessages) {
+                        newMessages[roomId] = newMessages[roomId].map(m => {
+                            if (m.id === data.messageId) {
+                                const reactions = ((m as any).reactions || []).filter(
+                                    (r: any) => !(r.userId === data.userId && r.emoji === data.emoji)
+                                );
+                                return { ...m, reactions };
                             }
                             return m;
                         });
@@ -392,7 +434,7 @@ export function useWebSocket() {
                     }));
                     console.log('📜 Mapped messages:', mappedMessages.length, mappedMessages.slice(0, 2));
                     setMessages(prev => {
-                        const newState = {
+                        const newState: Record<string, Message[]> = {
                             ...prev,
                             [data.roomId]: mappedMessages
                         };
@@ -400,12 +442,20 @@ export function useWebSocket() {
                         return newState;
                     });
                 }
+                // Load room members
+                if (data.members && Array.isArray(data.members)) {
+                    console.log('👥 Loading room members:', data.members.length, 'for room:', data.roomId);
+                    setRoomMembers(prev => ({
+                        ...prev,
+                        [data.roomId]: data.members
+                    }));
+                }
                 // Load polls from room_joined response
                 if (data.polls && Array.isArray(data.polls)) {
                     console.log('📊 Loading polls from room_joined:', data.polls.length, 'for room:', data.roomId);
                     console.log('📊 Polls data:', JSON.stringify(data.polls));
                     setPolls(prev => {
-                        const newPolls = { ...prev };
+                        const newPolls: Record<string, any> = { ...prev };
                         data.polls.forEach((poll: any) => {
                             // Ensure roomId is set correctly
                             newPolls[poll.id] = { ...poll, roomId: data.roomId };
@@ -500,7 +550,7 @@ export function useWebSocket() {
                     const newMessages = { ...prev };
                     Object.keys(newMessages).forEach(roomId => {
                         newMessages[roomId] = newMessages[roomId].map(msg => {
-                            if (msg.type === 'poll' && msg.poll?.id === data.pollId) {
+                            if (msg.type === 'poll' && msg.poll && msg.poll.id === data.pollId) {
                                 const updatedOptions = msg.poll.options.map((opt: any) =>
                                     opt.id === data.optionId
                                         ? { ...opt, votes: opt.votes + 1, voters: [...(opt.voters || []), data.userId] }
@@ -521,9 +571,41 @@ export function useWebSocket() {
                 break;
 
             case 'game_start':
-            case 'game_state':
                 setActiveGames(prev => ({ ...prev, [data.gameId]: data.game }));
                 break;
+
+            case 'game_move': {
+                const { gameId, position, playerId } = data;
+                setActiveGames(prev => {
+                    const game = prev[gameId];
+                    if (!game || game.status !== 'playing') return prev;
+                    
+                    // Determine symbol for current player
+                    const symbol = game.players.X === playerId ? 'X' : 'O';
+                    
+                    // Update board
+                    const newBoard = [...game.board];
+                    newBoard[position] = symbol;
+                    
+                    // Check for winner
+                    const winner = checkWinner(newBoard);
+                    const isDraw = !winner && newBoard.every(cell => cell !== '');
+                    
+                    // Switch turn
+                    const nextTurn = symbol === 'X' ? 'O' : 'X';
+                    
+                    const updatedGame = {
+                        ...game,
+                        board: newBoard,
+                        currentTurn: nextTurn,
+                        winner,
+                        status: (winner || isDraw) ? 'finished' as const : 'playing' as const
+                    };
+                    
+                    return { ...prev, [gameId]: updatedGame };
+                });
+                break;
+            }
 
             case 'game_end':
                 setActiveGames(prev => {
@@ -533,6 +615,11 @@ export function useWebSocket() {
                     }
                     return updated;
                 });
+                break;
+
+            case 'game_rejected':
+                console.log('Game invitation rejected:', data.gameId);
+                // Could show notification here
                 break;
 
             // Watch Together
@@ -819,14 +906,27 @@ export function useWebSocket() {
 
     // Delete room from local state (after leaving)
     const deleteRoom = useCallback((roomId: string) => {
-        setRooms(prev => prev.filter(r => r.id !== roomId));
+        console.log('🗑️ Deleting room:', roomId)
+        
+        // Send delete request to server
+        send({
+            type: 'delete_room',
+            roomId: roomId
+        });
+        
+        // Update local state
+        setRooms(prev => prev.filter(r => {
+            const id = (r as any).id || (r as any).roomId;
+            return id !== roomId;
+        }));
+        
         // Also clear messages for that room
         setMessages(prev => {
             const updated = { ...prev };
             delete updated[roomId];
             return updated;
         });
-    }, []);
+    }, [send]);
 
     const createRoom = useCallback((name: string, roomType?: 'public' | 'private' | 'group') => {
         send({
@@ -854,6 +954,15 @@ export function useWebSocket() {
     const addReaction = useCallback((messageId: string, emoji: string) => {
         send({
             type: 'add_reaction',
+            messageId,
+            emoji,
+            roomId: currentRoomId
+        });
+    }, [send, currentRoomId]);
+
+    const removeReaction = useCallback((messageId: string, emoji: string) => {
+        send({
+            type: 'remove_reaction',
             messageId,
             emoji,
             roomId: currentRoomId
@@ -977,8 +1086,8 @@ export function useWebSocket() {
         send({ type: 'game_invite', gameType, opponentId });
     }, [send]);
 
-    const acceptGame = useCallback((gameId: string) => {
-        send({ type: 'game_accept', gameId });
+    const acceptGame = useCallback((gameId: string, fromUserId: string) => {
+        send({ type: 'game_accept', gameId, fromUserId });
     }, [send]);
 
     const rejectGame = useCallback((gameId: string) => {
@@ -1049,8 +1158,10 @@ export function useWebSocket() {
         editMessage,
         deleteMessage,
         addReaction,
+        removeReaction,
         // New features
         typingUsers,
+        roomMembers,
         // Message Actions
         pinMessage,
         unpinMessage,

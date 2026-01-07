@@ -20,6 +20,11 @@ export function VoiceRecorder({ onRecordingComplete, onCancel }: VoiceRecorderPr
     // Start recording
     const startRecording = async () => {
         try {
+            // Check if mediaDevices is available (requires HTTPS or localhost)
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                throw new Error('Voice recording requires HTTPS or localhost for security.')
+            }
+
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             streamRef.current = stream;
 

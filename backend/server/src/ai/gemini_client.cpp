@@ -15,7 +15,7 @@ static size_t WriteCallback(void* contents, size_t size, size_t nmemb, std::stri
 
 GeminiClient::GeminiClient(const std::string& apiKey)
     : apiKey_(apiKey)
-    , apiEndpoint_("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent") {
+    , apiEndpoint_("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent") {
     Logger::info("Gemini AI client initialized");
 }
 

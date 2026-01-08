@@ -4,6 +4,13 @@
 
 A full-featured real-time chat application with WebSocket communication, MySQL database, modern React UI, and AI-powered assistant.
 
+## 🌐 **Live Demo:** [Web Chat App](http://minhvu23.id.vn)
+⚠️ Note: HTTPS is not currently enabled on the Linux server (SSL not configured).  
+As a result, features that require a secure context, such as voice calls (WebRTC) and location sharing (Geolocation API), are not available.
+
+## 📖 Documentation
+https://docs.google.com/document/d/1KRUXHqXxq-Ag_Cn7oI7F_kdmOwaalz-DH0X4dpRzxqc/edit?usp=sharing
+
 ## 🚀 Quick Start
 
 ### Prerequisites
@@ -115,19 +122,6 @@ ChatBox web/
 ├── test/                     # Test files
 └── uploads/                  # File uploads directory
 ```
-
----
-
-## 📖 Documentation
-
-See the `docs/` folder for detailed documentation:
-- [Quick Start Guide](docs/01-QUICK_START.md)
-- [Features Overview](docs/02-FEATURES.md)
-- [Deployment Guide](docs/03-DEPLOYMENT.md)
-- [Database Schema](docs/04-DATABASE.md)
-- [WebSocket Protocol](docs/05-PROTOCOL.md)
-- [Testing Guide](docs/06-TESTING.md)
-- [Fixes & Changelog](docs/FIXES_COMPLETED.md)
 
 ---
 
